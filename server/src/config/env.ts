@@ -7,12 +7,12 @@ export interface AppConfig {
 
 const DEFAULT_PORT = 3001
 
-function parsePort(rawPort: string | undefined): number {
-  if (rawPort === undefined || rawPort.trim() === "") return DEFAULT_PORT
+function parsePort(rawPort: string | undefined, variableName: "PORT" | "API_PORT"): number {
+  if (rawPort === undefined) return DEFAULT_PORT
 
   const port = Number(rawPort)
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error("API_PORT must be an integer between 1 and 65535")
+    throw new Error(`${variableName} must be an integer between 1 and 65535`)
   }
 
   return port
@@ -28,8 +28,12 @@ function parseEnvironment(rawEnvironment: string | undefined): Environment {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const port = env.PORT !== undefined
+    ? parsePort(env.PORT, "PORT")
+    : parsePort(env.API_PORT, "API_PORT")
+
   return {
-    port: parsePort(env.API_PORT),
+    port,
     environment: parseEnvironment(env.ENVIRONMENT),
   }
 }

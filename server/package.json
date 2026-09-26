@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/api.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/health.test.ts",
+    "test": "tsx --test test/health.test.ts test/config.test.ts",
     "prisma:validate": "prisma validate --config=./prisma.config.ts",
     "prisma:generate": "prisma generate --config=./prisma.config.ts"
   },
