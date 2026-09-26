@@ -11,6 +11,7 @@ export type DatabaseConnectivityCategory =
   | "DATABASE_NOT_READY"
   | "CONNECTION_LIMIT"
   | "POSTGRES_CONNECTION"
+  | "RUNTIME_ARTIFACT"
   | "TLS"
   | "NETWORK"
   | "INVALID_URL"
@@ -18,6 +19,40 @@ export type DatabaseConnectivityCategory =
 
 export type DatabaseErrorKind = "AGGREGATE" | "ERROR" | "TYPE_ERROR" | "POSTGRES_ERROR" | "UNKNOWN"
 export type ConnectionEncryption = "SSL" | "NONE" | "UNKNOWN"
+export type DatabaseConnectivityStage =
+  | "DATABASE_URL_VALIDATION"
+  | "POOL_CREATION"
+  | "GENERATED_CLIENT_RESOLUTION"
+  | "GENERATED_CLIENT_IMPORT"
+  | "PRISMA_ADAPTER_CREATION"
+  | "PRISMA_CLIENT_CREATION"
+  | "POOL_CONNECT"
+  | "CLIENT_RELEASE"
+  | "UNKNOWN"
+export type ErrorCodeFamily = "NONE" | "NODE_ERR" | "OS_NETWORK" | "POSTGRES_SQLSTATE" | "OTHER"
+
+export interface GeneratedClientArtifactFlags {
+  generatedClientDirectoryExists: boolean
+  generatedClientEntryExists: boolean
+  generatedClientPackageMetadataExists: boolean
+}
+
+export class DatabaseRuntimeStageError extends Error {
+  constructor(
+    readonly stage: DatabaseConnectivityStage,
+    readonly originalError: unknown,
+    readonly databaseRuntimeInitialized: boolean,
+    readonly generatedClientArtifacts?: GeneratedClientArtifactFlags,
+  ) {
+    super("Database runtime stage failed")
+  }
+}
+
+export class GeneratedClientEntryMissingError extends Error {
+  constructor() {
+    super("Generated Prisma client entry is missing")
+  }
+}
 
 export interface ChildDatabaseConnectivityDiagnostic {
   category: DatabaseConnectivityCategory
@@ -28,10 +63,16 @@ export interface ChildDatabaseConnectivityDiagnostic {
 export interface ClassifiedDatabaseConnectivityError {
   category: DatabaseConnectivityCategory
   code: string
+  stage: DatabaseConnectivityStage
   errorKind: DatabaseErrorKind
+  databaseRuntimeInitialized: boolean
+  generatedClientDirectoryExists?: boolean
+  generatedClientEntryExists?: boolean
+  generatedClientPackageMetadataExists?: boolean
+  errorCodePresent: boolean
+  errorCodeFamily: ErrorCodeFamily
   hasCause: boolean
   hasAggregateChildren: boolean
-  aggregate?: true
   childErrorCount?: number
   childErrors?: ChildDatabaseConnectivityDiagnostic[]
   sqlstateClass?: string
@@ -48,7 +89,7 @@ export interface DatabaseUrlDiagnosticFlags {
 
 export interface SafeDatabaseConnectivityDiagnostic extends ClassifiedDatabaseConnectivityError, DatabaseUrlDiagnosticFlags {
   event: "database_readiness_failed"
-  diagnosticVersion: "R2"
+  diagnosticVersion: "R3"
 }
 
 interface BasicClassification {
@@ -63,6 +104,34 @@ const MAX_CHILD_ERRORS = 6
 const SQLSTATE_PATTERN = /^[0-9A-Z]{5}$/
 const PG_HBA_PATTERN = "no pg_hba.conf entry"
 const SASL_PASSWORD_PATTERN = "SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string"
+const NODE_MODULE_ERROR_CODES = new Set([
+  "ERR_MODULE_NOT_FOUND",
+  "MODULE_NOT_FOUND",
+  "ERR_PACKAGE_PATH_NOT_EXPORTED",
+  "ERR_UNSUPPORTED_DIR_IMPORT",
+  "ERR_UNKNOWN_FILE_EXTENSION",
+])
+const OS_NETWORK_ERROR_CODES = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENETDOWN",
+])
+const DATABASE_CONNECTIVITY_STAGES = new Set<DatabaseConnectivityStage>([
+  "DATABASE_URL_VALIDATION",
+  "POOL_CREATION",
+  "GENERATED_CLIENT_RESOLUTION",
+  "GENERATED_CLIENT_IMPORT",
+  "PRISMA_ADAPTER_CREATION",
+  "PRISMA_CLIENT_CREATION",
+  "POOL_CONNECT",
+  "CLIENT_RELEASE",
+  "UNKNOWN",
+])
 
 const codeClassifications: Record<string, BasicClassification> = {
   ERR_INVALID_URL: { category: "INVALID_URL", code: "ERR_INVALID_URL" },
@@ -86,6 +155,11 @@ const codeClassifications: Record<string, BasicClassification> = {
   "3D000": { category: "DATABASE_NOT_FOUND", code: "3D000" },
   "57P03": { category: "DATABASE_NOT_READY", code: "57P03" },
   "53300": { category: "CONNECTION_LIMIT", code: "53300" },
+  ERR_MODULE_NOT_FOUND: { category: "RUNTIME_ARTIFACT", code: "ERR_MODULE_NOT_FOUND" },
+  MODULE_NOT_FOUND: { category: "RUNTIME_ARTIFACT", code: "MODULE_NOT_FOUND" },
+  ERR_PACKAGE_PATH_NOT_EXPORTED: { category: "RUNTIME_ARTIFACT", code: "ERR_PACKAGE_PATH_NOT_EXPORTED" },
+  ERR_UNSUPPORTED_DIR_IMPORT: { category: "RUNTIME_ARTIFACT", code: "ERR_UNSUPPORTED_DIR_IMPORT" },
+  ERR_UNKNOWN_FILE_EXTENSION: { category: "RUNTIME_ARTIFACT", code: "ERR_UNKNOWN_FILE_EXTENSION" },
   SELF_SIGNED_CERT_IN_CHAIN: { category: "TLS", code: "SELF_SIGNED_CERT_IN_CHAIN" },
   DEPTH_ZERO_SELF_SIGNED_CERT: { category: "TLS", code: "DEPTH_ZERO_SELF_SIGNED_CERT" },
   CERT_HAS_EXPIRED: { category: "TLS", code: "CERT_HAS_EXPIRED" },
@@ -129,6 +203,50 @@ function isAggregateError(error: unknown): boolean {
   }
 }
 
+function getErrorContext(error: unknown): {
+  originalError: unknown
+  stage: DatabaseConnectivityStage
+  databaseRuntimeInitialized: boolean
+  generatedClientArtifacts: Partial<GeneratedClientArtifactFlags>
+} {
+  try {
+    if (error instanceof DatabaseRuntimeStageError) {
+      return {
+        originalError: error.originalError,
+        stage: DATABASE_CONNECTIVITY_STAGES.has(error.stage) ? error.stage : "UNKNOWN",
+        databaseRuntimeInitialized: error.databaseRuntimeInitialized,
+        generatedClientArtifacts: {
+          ...(typeof error.generatedClientArtifacts?.generatedClientDirectoryExists === "boolean"
+            ? { generatedClientDirectoryExists: error.generatedClientArtifacts.generatedClientDirectoryExists }
+            : {}),
+          ...(typeof error.generatedClientArtifacts?.generatedClientEntryExists === "boolean"
+            ? { generatedClientEntryExists: error.generatedClientArtifacts.generatedClientEntryExists }
+            : {}),
+          ...(typeof error.generatedClientArtifacts?.generatedClientPackageMetadataExists === "boolean"
+            ? { generatedClientPackageMetadataExists: error.generatedClientArtifacts.generatedClientPackageMetadataExists }
+            : {}),
+        },
+      }
+    }
+  } catch {
+    // Revoked proxies or hostile objects fall back to an UNKNOWN-safe context.
+  }
+  return {
+    originalError: error,
+    stage: "UNKNOWN",
+    databaseRuntimeInitialized: false,
+    generatedClientArtifacts: {},
+  }
+}
+
+function getErrorCodeFamily(code: string | undefined): ErrorCodeFamily {
+  if (code === undefined) return "NONE"
+  if (NODE_MODULE_ERROR_CODES.has(code)) return "NODE_ERR"
+  if (OS_NETWORK_ERROR_CODES.has(code)) return "OS_NETWORK"
+  if (SQLSTATE_PATTERN.test(code)) return "POSTGRES_SQLSTATE"
+  return "OTHER"
+}
+
 function hasCause(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false
   try {
@@ -164,15 +282,35 @@ function getAddressFamily(error: unknown): 0 | 4 | 6 {
   }
 }
 
-function classifyBasicError(error: unknown): BasicClassification {
+function classifyBasicError(error: unknown, stage: DatabaseConnectivityStage): BasicClassification {
   const code = getErrorCode(error)
-  const message = getMessage(error)
 
-  if (message?.includes(SASL_PASSWORD_PATTERN)) {
-    return { category: "CONFIGURATION", code: "SASL_PASSWORD_NOT_STRING" }
+  try {
+    if (error instanceof GeneratedClientEntryMissingError) {
+      return { category: "RUNTIME_ARTIFACT", code: "GENERATED_CLIENT_ENTRY_MISSING" }
+    }
+  } catch {
+    // Continue with the safe code-only classification.
+  }
+
+  if (stage === "POOL_CONNECT") {
+    const message = getMessage(error)
+    if (message?.includes(SASL_PASSWORD_PATTERN)) {
+      return { category: "CONFIGURATION", code: "SASL_PASSWORD_NOT_STRING" }
+    }
+    if (message?.includes("The server does not support SSL connections")) {
+      return { category: "TLS", code: "SERVER_SSL_UNSUPPORTED" }
+    }
+    if (message?.includes("The server requires encryption")) {
+      return { category: "TLS", code: "SERVER_REQUIRES_ENCRYPTION" }
+    }
+    if (message?.includes("Connection terminated unexpectedly")) {
+      return { category: "NETWORK", code: "CONNECTION_TERMINATED_UNEXPECTEDLY" }
+    }
   }
 
   if (code === "28000") {
+    const message = getMessage(error)
     if (!message?.includes(PG_HBA_PATTERN)) {
       return { category: "AUTHORIZATION", code: "28000", pgHbaRejected: false }
     }
@@ -198,20 +336,25 @@ function classifyBasicError(error: unknown): BasicClassification {
     return { category: "UNKNOWN", code: "UNCLASSIFIED" }
   }
 
-  const normalizedMessage = message?.toLowerCase()
-  if (
-    normalizedMessage?.includes("timeout exceeded when trying to connect") ||
-    normalizedMessage?.includes("connection terminated due to connection timeout")
-  ) {
-    return { category: "TIMEOUT", code: "CONNECTION_TIMEOUT" }
+  if (stage === "POOL_CONNECT") {
+    const normalizedMessage = getMessage(error)?.toLowerCase()
+    if (
+      normalizedMessage?.includes("timeout exceeded when trying to connect") ||
+      normalizedMessage?.includes("connection terminated due to connection timeout")
+    ) {
+      return { category: "TIMEOUT", code: "CONNECTION_TIMEOUT" }
+    }
   }
 
   return { category: "UNKNOWN", code: "UNCLASSIFIED" }
 }
 
-function summarizeAggregateChildren(children: unknown[]): ChildDatabaseConnectivityDiagnostic[] {
+function summarizeAggregateChildren(
+  children: unknown[],
+  stage: DatabaseConnectivityStage,
+): ChildDatabaseConnectivityDiagnostic[] {
   return children.slice(0, MAX_CHILD_ERRORS).map((child) => {
-    const classification = classifyBasicError(child)
+    const classification = classifyBasicError(child, stage)
     return {
       category: classification.category,
       code: classification.code,
@@ -232,6 +375,7 @@ function classifyAggregate(children: ChildDatabaseConnectivityDiagnostic[]): Bas
     "DATABASE_NOT_FOUND",
     "DATABASE_NOT_READY",
     "CONNECTION_LIMIT",
+    "RUNTIME_ARTIFACT",
     "TLS",
     "CONFIGURATION",
     "INVALID_URL",
@@ -245,24 +389,30 @@ function classifyAggregate(children: ChildDatabaseConnectivityDiagnostic[]): Bas
 }
 
 export function classifyDatabaseConnectivityError(error: unknown): ClassifiedDatabaseConnectivityError {
-  const children = getAggregateChildren(error)
-  const aggregate = isAggregateError(error) || children !== undefined
-  const errorCode = getErrorCode(error)
-  const errorKind = getErrorKind(error, errorCode, aggregate)
-  const childSummaries = aggregate ? summarizeAggregateChildren(children ?? []) : undefined
+  const context = getErrorContext(error)
+  const sourceError = context.originalError
+  const children = getAggregateChildren(sourceError)
+  const aggregate = isAggregateError(sourceError) || children !== undefined
+  const errorCode = getErrorCode(sourceError)
+  const errorKind = getErrorKind(sourceError, errorCode, aggregate)
+  const childSummaries = aggregate ? summarizeAggregateChildren(children ?? [], context.stage) : undefined
   const base = aggregate
     ? classifyAggregate(childSummaries ?? [])
-    : classifyBasicError(error)
+    : classifyBasicError(sourceError, context.stage)
 
   const result: ClassifiedDatabaseConnectivityError = {
     ...base,
+    stage: context.stage,
     errorKind,
-    hasCause: hasCause(error),
+    databaseRuntimeInitialized: context.databaseRuntimeInitialized,
+    ...context.generatedClientArtifacts,
+    errorCodePresent: errorCode !== undefined,
+    errorCodeFamily: getErrorCodeFamily(errorCode),
+    hasCause: hasCause(sourceError),
     hasAggregateChildren: children !== undefined,
   }
 
   if (aggregate) {
-    result.aggregate = true
     result.childErrorCount = children?.length ?? 0
     result.childErrors = childSummaries ?? []
   }
@@ -312,7 +462,7 @@ export function createSafeDatabaseConnectivityDiagnostic(
 
   return {
     event: "database_readiness_failed",
-    diagnosticVersion: "R2",
+    diagnosticVersion: "R3",
     ...safeClassification,
     ...urlFlags,
   }

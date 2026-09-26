@@ -4,6 +4,8 @@ import { test } from "node:test"
 import { buildApp } from "../src/app/build-app.js"
 import { requireDatabaseUrl } from "../src/infrastructure/prisma/client.js"
 import {
+  DatabaseRuntimeStageError,
+  GeneratedClientEntryMissingError,
   classifyDatabaseConnectivityError,
   createSafeDatabaseConnectivityDiagnostic,
   getDatabaseUrlDiagnosticFlags,
@@ -84,8 +86,12 @@ test("GET /ready returns sanitized 503 when DATABASE_URL and pg defaults are abs
     import { buildApp } from "./src/app/build-app.js"
     const app = buildApp()
     try {
-      const response = await app.inject({ method: "GET", url: "/ready" })
-      process.stdout.write(JSON.stringify({ statusCode: response.statusCode, body: response.json() }))
+      const health = await app.inject({ method: "GET", url: "/health" })
+      const ready = await app.inject({ method: "GET", url: "/ready" })
+      process.stdout.write(JSON.stringify({
+        health: { statusCode: health.statusCode, body: health.json() },
+        ready: { statusCode: ready.statusCode, body: ready.json() },
+      }))
     } finally {
       await app.close()
     }
@@ -105,19 +111,32 @@ test("GET /ready returns sanitized 503 when DATABASE_URL and pg defaults are abs
 
   assert.equal(child.status, 0, child.stderr)
   assert.deepEqual(JSON.parse(child.stdout), {
-    statusCode: 503,
-    body: {
-      status: "not_ready",
-      service: "remis-norte-api",
-      database: "unreachable",
+    health: {
+      statusCode: 200,
+      body: {
+        status: "ok",
+        service: "remis-norte-api",
+      },
+    },
+    ready: {
+      statusCode: 503,
+      body: {
+        status: "not_ready",
+        service: "remis-norte-api",
+        database: "unreachable",
+      },
     },
   })
   assert.deepEqual(JSON.parse(child.stderr.trim()), {
     event: "database_readiness_failed",
-    diagnosticVersion: "R2",
+    diagnosticVersion: "R3",
     category: "CONFIGURATION",
     code: "DATABASE_URL_MISSING",
+    stage: "DATABASE_URL_VALIDATION",
     errorKind: "ERROR",
+    databaseRuntimeInitialized: false,
+    errorCodePresent: false,
+    errorCodeFamily: "NONE",
     hasCause: false,
     hasAggregateChildren: false,
     databaseUrlPresent: false,
@@ -165,7 +184,12 @@ test("database connectivity classifier maps only allowlisted PostgreSQL and netw
   assert.equal(classifyDatabaseConnectivityError(new Error("ordinary failure")).code, "UNCLASSIFIED")
   assert.equal(classifyDatabaseConnectivityError(new TypeError("invalid input")).errorKind, "TYPE_ERROR")
   assert.equal(classifyDatabaseConnectivityError({ arbitrary: true }).errorKind, "UNKNOWN")
-  assert.equal(classifyDatabaseConnectivityError(new Error("timeout exceeded when trying to connect")).code, "CONNECTION_TIMEOUT")
+  assert.equal(
+    classifyDatabaseConnectivityError(
+      new DatabaseRuntimeStageError("POOL_CONNECT", new Error("timeout exceeded when trying to connect"), true),
+    ).code,
+    "CONNECTION_TIMEOUT",
+  )
 })
 
 test("AggregateError children are classified safely with only address families", () => {
@@ -188,13 +212,16 @@ test("AggregateError children are classified safely with only address families",
 
   assert.deepEqual(result, {
     event: "database_readiness_failed",
-    diagnosticVersion: "R2",
+    diagnosticVersion: "R3",
     category: "CONNECTION_REFUSED",
     code: "ECONNREFUSED",
+    stage: "UNKNOWN",
     errorKind: "AGGREGATE",
+    databaseRuntimeInitialized: false,
+    errorCodePresent: false,
+    errorCodeFamily: "NONE",
     hasCause: true,
     hasAggregateChildren: true,
-    aggregate: true,
     childErrorCount: 2,
     childErrors: [
       { category: "NETWORK", code: "ENETUNREACH", addressFamily: 6 },
@@ -241,7 +268,11 @@ test("PostgreSQL SQLSTATE startup codes are allowlisted and unknown SQLSTATEs ex
     {
       category: "UNKNOWN",
       code: "POSTGRES_UNCLASSIFIED",
+      stage: "UNKNOWN",
       errorKind: "POSTGRES_ERROR",
+      databaseRuntimeInitialized: false,
+      errorCodePresent: true,
+      errorCodeFamily: "POSTGRES_SQLSTATE",
       hasCause: false,
       hasAggregateChildren: false,
       sqlstateClass: "ZZ",
@@ -285,7 +316,11 @@ test("pg_hba and SASL messages yield only safe classifications", () => {
   assert.equal(genericAuthorization.pgHbaRejected, false)
 
   const sasl = classifyDatabaseConnectivityError(
-    new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string"),
+    new DatabaseRuntimeStageError(
+      "POOL_CONNECT",
+      new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string"),
+      true,
+    ),
   )
   assert.equal(sasl.category, "CONFIGURATION")
   assert.equal(sasl.code, "SASL_PASSWORD_NOT_STRING")
@@ -340,10 +375,14 @@ test("safe diagnostic log never includes error or connection secrets", () => {
   })
   assert.deepEqual(safeDiagnostic, {
     event: "database_readiness_failed",
-    diagnosticVersion: "R2",
+    diagnosticVersion: "R3",
     category: "UNKNOWN",
     code: "UNCLASSIFIED",
+    stage: "UNKNOWN",
     errorKind: "ERROR",
+    databaseRuntimeInitialized: false,
+    errorCodePresent: true,
+    errorCodeFamily: "OTHER",
     hasCause: false,
     hasAggregateChildren: false,
     databaseUrlPresent: true,
@@ -368,14 +407,163 @@ test("safe diagnostic log never includes error or connection secrets", () => {
   assert.deepEqual(Object.keys(JSON.parse(output[0])).sort(), [
     "category",
     "code",
+    "databaseRuntimeInitialized",
     "databaseUrlParseable",
     "databaseUrlPresent",
     "databaseUrlReferenceLiteral",
     "diagnosticVersion",
+    "errorCodeFamily",
+    "errorCodePresent",
     "errorKind",
     "event",
     "hasAggregateChildren",
     "hasCause",
     "protocolAccepted",
+    "stage",
   ])
+})
+
+test("R3 reports generated client resolution failure with booleans and no filesystem path", () => {
+  const diagnostic = createSafeDatabaseConnectivityDiagnostic(
+    new DatabaseRuntimeStageError(
+      "GENERATED_CLIENT_RESOLUTION",
+      new GeneratedClientEntryMissingError(),
+      false,
+      {
+        generatedClientDirectoryExists: true,
+        generatedClientEntryExists: false,
+        generatedClientPackageMetadataExists: false,
+      },
+    ),
+    { DATABASE_URL: "postgresql://fake:secret@db.invalid/fake" },
+  )
+
+  assert.equal(diagnostic.stage, "GENERATED_CLIENT_RESOLUTION")
+  assert.equal(diagnostic.category, "RUNTIME_ARTIFACT")
+  assert.equal(diagnostic.code, "GENERATED_CLIENT_ENTRY_MISSING")
+  assert.equal(diagnostic.databaseRuntimeInitialized, false)
+  assert.equal(diagnostic.generatedClientDirectoryExists, true)
+  assert.equal(diagnostic.generatedClientEntryExists, false)
+  assert.equal(diagnostic.generatedClientPackageMetadataExists, false)
+  assert.equal(JSON.stringify(diagnostic).includes("node_modules"), false)
+})
+
+test("R3 allowlists Node module errors without exposing paths in their messages", () => {
+  const diagnostic = createSafeDatabaseConnectivityDiagnostic(
+    new DatabaseRuntimeStageError(
+      "GENERATED_CLIENT_IMPORT",
+      Object.assign(new Error("Cannot find module C:\\private\\fake-project\\node_modules\\generated\\client.js"), {
+        code: "ERR_MODULE_NOT_FOUND",
+      }),
+      false,
+      {
+        generatedClientDirectoryExists: true,
+        generatedClientEntryExists: true,
+        generatedClientPackageMetadataExists: false,
+      },
+    ),
+    { DATABASE_URL: "postgresql://fake:secret@db.invalid/fake" },
+  )
+
+  assert.equal(diagnostic.category, "RUNTIME_ARTIFACT")
+  assert.equal(diagnostic.code, "ERR_MODULE_NOT_FOUND")
+  assert.equal(diagnostic.errorCodePresent, true)
+  assert.equal(diagnostic.errorCodeFamily, "NODE_ERR")
+  assert.equal(diagnostic.stage, "GENERATED_CLIENT_IMPORT")
+  const serialized = JSON.stringify(diagnostic)
+  assert.equal(serialized.includes("C:\\\\private"), false)
+  assert.equal(serialized.includes("fake-project"), false)
+
+  const otherErr = classifyDatabaseConnectivityError(
+    Object.assign(new Error("private module detail"), { code: "ERR_PRIVATE_DETAIL" }),
+  )
+  assert.equal(otherErr.category, "UNKNOWN")
+  assert.equal(otherErr.code, "UNCLASSIFIED")
+  assert.equal(otherErr.errorCodeFamily, "OTHER")
+})
+
+test("R3 distinguishes Prisma client creation from pool connection failures", () => {
+  const clientCreation = classifyDatabaseConnectivityError(
+    new DatabaseRuntimeStageError("PRISMA_CLIENT_CREATION", new Error("private constructor detail"), false),
+  )
+  assert.equal(clientCreation.stage, "PRISMA_CLIENT_CREATION")
+  assert.equal(clientCreation.category, "UNKNOWN")
+  assert.equal(clientCreation.code, "UNCLASSIFIED")
+  assert.equal(clientCreation.databaseRuntimeInitialized, false)
+
+  const poolConnect = classifyDatabaseConnectivityError(
+    new DatabaseRuntimeStageError(
+      "POOL_CONNECT",
+      Object.assign(new Error("private socket detail"), { code: "ECONNREFUSED" }),
+      true,
+    ),
+  )
+  assert.equal(poolConnect.stage, "POOL_CONNECT")
+  assert.equal(poolConnect.databaseRuntimeInitialized, true)
+  assert.equal(poolConnect.category, "CONNECTION_REFUSED")
+  assert.equal(poolConnect.code, "ECONNREFUSED")
+  assert.equal(poolConnect.errorCodeFamily, "OS_NETWORK")
+})
+
+test("R3 pool-connect message fingerprints map only to fixed safe codes", () => {
+  const cases: Array<[string, string, string]> = [
+    ["The server does not support SSL connections; private host db.internal", "TLS", "SERVER_SSL_UNSUPPORTED"],
+    ["The server requires encryption for private-user", "TLS", "SERVER_REQUIRES_ENCRYPTION"],
+    ["Connection terminated unexpectedly at 10.1.2.3", "NETWORK", "CONNECTION_TERMINATED_UNEXPECTEDLY"],
+    ["SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string secret", "CONFIGURATION", "SASL_PASSWORD_NOT_STRING"],
+  ]
+
+  for (const [message, category, code] of cases) {
+    const result = classifyDatabaseConnectivityError(
+      new DatabaseRuntimeStageError("POOL_CONNECT", new Error(message), true),
+    )
+    assert.equal(result.category, category)
+    assert.equal(result.code, code)
+    assert.equal(JSON.stringify(result).includes(message), false)
+  }
+
+  const beforePoolConnect = classifyDatabaseConnectivityError(
+    new DatabaseRuntimeStageError(
+      "PRISMA_CLIENT_CREATION",
+      new Error("The server does not support SSL connections"),
+      false,
+    ),
+  )
+  assert.equal(beforePoolConnect.category, "UNKNOWN")
+  assert.equal(beforePoolConnect.code, "UNCLASSIFIED")
+})
+
+test("R3 safe diagnostic leaks none of synthetic URL, Railway, path, identity, or IP values", () => {
+  const secretValues = [
+    "fake-user-r3",
+    "fake-password-r3",
+    "railway-fake-r3.internal",
+    "fake-database-r3",
+    "C:\\private\\fake-project-r3\\node_modules\\.prisma\\generated\\client.js",
+    "192.0.2.201",
+    "2001:db8::201",
+    "postgresql://fake-user-r3:fake-password-r3@railway-fake-r3.internal:5432/fake-database-r3",
+  ]
+  const children = [
+    Object.assign(new Error(secretValues[4]), { code: "ENETUNREACH", address: secretValues[6] }),
+    Object.assign(new Error(secretValues[4]), { code: "ECONNREFUSED", address: secretValues[5] }),
+  ]
+  const sensitiveAggregate = new AggregateError(children, secretValues[7], { cause: new Error(secretValues[1]) })
+  const diagnostic = createSafeDatabaseConnectivityDiagnostic(
+    new DatabaseRuntimeStageError("POOL_CONNECT", sensitiveAggregate, true, {
+      generatedClientDirectoryExists: true,
+      generatedClientEntryExists: true,
+      generatedClientPackageMetadataExists: true,
+    }),
+    { DATABASE_URL: secretValues[7] },
+  )
+
+  const serialized = JSON.stringify(diagnostic)
+  for (const secret of secretValues) assert.equal(serialized.includes(secret), false)
+  assert.equal(diagnostic.diagnosticVersion, "R3")
+  assert.equal(diagnostic.stage, "POOL_CONNECT")
+  assert.equal(diagnostic.databaseRuntimeInitialized, true)
+  assert.equal(diagnostic.childErrorCount, 2)
+  assert.equal(diagnostic.childErrors?.[0].addressFamily, 6)
+  assert.equal(diagnostic.childErrors?.[1].addressFamily, 4)
 })
