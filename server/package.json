@@ -4,10 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/api.ts",
+    "predev": "npm run prisma:generate",
     "prebuild": "npm run prisma:generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/api.js",
+    "pretypecheck": "npm run prisma:generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run prisma:generate",
     "test": "tsx --test test/health.test.ts test/config.test.ts",
     "prisma:validate": "prisma validate --config=./prisma.config.ts",
     "prisma:generate": "prisma generate --config=./prisma.config.ts"
