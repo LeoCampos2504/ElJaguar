@@ -7,13 +7,17 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/api.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/health.test.ts"
+    "test": "tsx --test test/health.test.ts",
+    "prisma:validate": "prisma validate --config=./prisma.config.ts",
+    "prisma:generate": "prisma generate --config=./prisma.config.ts"
   },
   "dependencies": {
+    "@prisma/client": "7.10.0",
     "fastify": "^5.12.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
+    "prisma": "7.10.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
