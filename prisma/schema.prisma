@@ -6,3 +6,416 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum ActorType {
+  PASSENGER
+  DRIVER
+  DISPATCHER
+  ADMIN
+  SYSTEM
+}
+
+enum TripRequestSource {
+  APP
+  PHONE
+  DISPATCHER
+  OTHER
+}
+
+enum TripStatus {
+  REQUESTED
+  ASSIGNED
+  DRIVER_EN_ROUTE
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TripOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum DispatchSearchStatus {
+  SEARCHING
+  WAITING_FOR_RESPONSE
+  NO_CANDIDATES
+  MANUAL_INTERVENTION
+  ASSIGNED
+  STOPPED
+}
+
+enum DriverAvailabilityStatus {
+  OFFLINE
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum AgencyRole {
+  DRIVER
+  DISPATCHER
+  ADMIN
+}
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships  AgencyMembership[]
+  drivers      Driver[]
+  vehicles     Vehicle[]
+  assignments  DriverVehicleAssignment[]
+  trips        Trip[]
+  offers       TripOffer[]
+  locations    DriverLocation[]
+  zones        Zone[]
+  fareVersions FareVersion[]
+  events       TripEvent[]
+  auditLogs    AuditLog[]
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String?  @unique
+  phoneNormalized String?  @unique
+  passwordHash    String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sessions         Session[]
+  memberships      AgencyMembership[]
+  passengerProfile PassengerProfile?
+  drivers          Driver[]
+  createdTrips     Trip[]             @relation("TripCreatedBy")
+  cancelledTrips   Trip[]             @relation("TripCancelledBy")
+  tripEvents       TripEvent[]        @relation("TripEventActor")
+  auditLogs        AuditLog[]         @relation("AuditLogActor")
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AgencyMembership {
+  id        String     @id @default(cuid())
+  agencyId  String
+  userId    String
+  role      AgencyRole
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([agencyId, userId, role])
+  @@index([userId, isActive])
+}
+
+model PassengerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  displayName     String
+  phoneNormalized String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trips Trip[] @relation("PassengerTrips")
+}
+
+model Driver {
+  id                 String                   @id @default(cuid())
+  agencyId           String
+  userId             String
+  isEnabled          Boolean                  @default(true)
+  availabilityStatus DriverAvailabilityStatus @default(OFFLINE)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  agency             Agency                    @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicleAssignments DriverVehicleAssignment[]
+  location           DriverLocation?
+  trips              Trip[]                    @relation("TripDriver")
+  offers             TripOffer[]
+
+  @@unique([agencyId, userId])
+  @@index([agencyId, availabilityStatus, isEnabled])
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  agencyId  String
+  plate     String
+  brand     String
+  model     String
+  color     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency      Agency                    @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  assignments DriverVehicleAssignment[]
+  trips       Trip[]                    @relation("TripVehicle")
+  offers      TripOffer[]
+
+  @@unique([agencyId, plate])
+}
+
+model DriverVehicleAssignment {
+  id        String    @id @default(cuid())
+  agencyId  String
+  driverId  String
+  vehicleId String
+  isCurrent Boolean   @default(true)
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  agency  Agency  @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([driverId, isCurrent])
+  @@index([vehicleId, isCurrent])
+}
+
+model DriverLocation {
+  driverId   String   @id
+  agencyId   String
+  lat        Decimal  @db.Decimal(10, 7)
+  lng        Decimal  @db.Decimal(10, 7)
+  accuracy   Decimal? @db.Decimal(10, 2)
+  recordedAt DateTime
+  updatedAt  DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+
+  @@index([agencyId, recordedAt])
+}
+
+model Zone {
+  id        String   @id @default(cuid())
+  agencyId  String
+  name      String
+  code      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency               Agency     @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  originTrips          Trip[]     @relation("TripOriginZone")
+  destinationTrips     Trip[]     @relation("TripDestinationZone")
+  originFareRules      FareRule[] @relation("FareRuleOriginZone")
+  destinationFareRules FareRule[] @relation("FareRuleDestinationZone")
+
+  @@unique([agencyId, code])
+}
+
+model FareVersion {
+  id            String    @id @default(cuid())
+  agencyId      String
+  versionLabel  String
+  currency      String
+  scale         Int       @default(0)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agency Agency     @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  rules  FareRule[]
+  trips  Trip[]
+
+  @@index([agencyId, effectiveFrom, effectiveTo])
+}
+
+model FareRule {
+  id                String   @id @default(cuid())
+  fareVersionId     String
+  originZoneId      String
+  destinationZoneId String
+  amount            Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  fareVersion     FareVersion @relation(fields: [fareVersionId], references: [id], onDelete: Restrict)
+  originZone      Zone        @relation("FareRuleOriginZone", fields: [originZoneId], references: [id], onDelete: Restrict)
+  destinationZone Zone        @relation("FareRuleDestinationZone", fields: [destinationZoneId], references: [id], onDelete: Restrict)
+
+  @@unique([fareVersionId, originZoneId, destinationZoneId])
+  @@index([originZoneId, destinationZoneId])
+}
+
+model Trip {
+  id                   String            @id @default(cuid())
+  agencyId             String
+  passengerId          String?
+  createdByUserId      String?
+  createdByActorType   ActorType
+  requestSource        TripRequestSource
+  originText           String
+  destinationText      String
+  originLat            Decimal?          @db.Decimal(10, 7)
+  originLng            Decimal?          @db.Decimal(10, 7)
+  destinationLat       Decimal?          @db.Decimal(10, 7)
+  destinationLng       Decimal?          @db.Decimal(10, 7)
+  originZoneId         String?
+  destinationZoneId    String?
+  driverId             String?
+  vehicleId            String?
+  status               TripStatus        @default(REQUESTED)
+  fareAmount           Int
+  fareCurrency         String
+  fareVersionId        String?
+  fareScale            Int               @default(0)
+  notes                String?
+  passengerDisplayName String?
+  contactPhone         String?
+  referenceNotes       String?
+  requestedAt          DateTime          @default(now())
+  assignedAt           DateTime?
+  arrivedAt            DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  cancelReasonCode     String?
+  cancelReasonText     String?
+  cancelledByActorType ActorType?
+  cancelledByUserId    String?
+  version              Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  agency          Agency            @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  passenger       PassengerProfile? @relation("PassengerTrips", fields: [passengerId], references: [id], onDelete: SetNull)
+  createdByUser   User?             @relation("TripCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cancelledByUser User?             @relation("TripCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  driver          Driver?           @relation("TripDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle         Vehicle?          @relation("TripVehicle", fields: [vehicleId], references: [id], onDelete: SetNull)
+  originZone      Zone?             @relation("TripOriginZone", fields: [originZoneId], references: [id], onDelete: SetNull)
+  destinationZone Zone?             @relation("TripDestinationZone", fields: [destinationZoneId], references: [id], onDelete: SetNull)
+  fareVersion     FareVersion?      @relation(fields: [fareVersionId], references: [id], onDelete: SetNull)
+
+  dispatchSearch DispatchSearch?
+  offers         TripOffer[]
+  events         TripEvent[]
+
+  @@index([agencyId, status, createdAt])
+  @@index([passengerId, createdAt])
+  @@index([driverId, status])
+}
+
+model DispatchSearch {
+  id              String               @id @default(cuid())
+  tripId          String               @unique
+  status          DispatchSearchStatus @default(SEARCHING)
+  startedAt       DateTime             @default(now())
+  lastEvaluatedAt DateTime?
+  stoppedAt       DateTime?
+  attemptCount    Int                  @default(0)
+  version         Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model TripOffer {
+  id               String          @id @default(cuid())
+  tripId           String
+  agencyId         String
+  driverId         String
+  vehicleId        String?
+  rank             Int
+  distanceSnapshot Int
+  status           TripOfferStatus @default(PENDING)
+  offeredAt        DateTime        @default(now())
+  expiresAt        DateTime?
+  respondedAt      DateTime?
+  response         String?
+  version          Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  trip    Trip     @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  agency  Agency   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  driver  Driver   @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, status])
+  @@index([driverId, status])
+  @@index([status, expiresAt])
+}
+
+model TripEvent {
+  id          String      @id @default(cuid())
+  tripId      String
+  agencyId    String
+  eventType   String
+  actorType   ActorType
+  actorUserId String?
+  fromStatus  TripStatus?
+  toStatus    TripStatus?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+
+  trip      Trip   @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  agency    Agency @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  actorUser User?  @relation("TripEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+}
+
+model AuditLog {
+  id           String    @id @default(cuid())
+  agencyId     String?
+  actorUserId  String?
+  actorType    ActorType
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+
+  agency    Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  actorUser User?   @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, createdAt])
+}
+
+model IdempotencyRecord {
+  id                 String    @id @default(cuid())
+  scope              String
+  key                String
+  fingerprint        String
+  status             String
+  resultResourceType String?
+  resultResourceId   String?
+  createdAt          DateTime  @default(now())
+  expiresAt          DateTime?
+
+  @@unique([scope, key])
+}
