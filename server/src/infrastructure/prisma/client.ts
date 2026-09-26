@@ -3,6 +3,7 @@ import { Pool, type PoolClient } from "pg"
 import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import type { PrismaClient as GeneratedPrismaClient } from "../../../node_modules/.prisma/generated/client.js"
+import { logDatabaseConnectivityFailure } from "./connectivity-diagnostics.js"
 
 type PrismaClientInstance = GeneratedPrismaClient
 
@@ -56,13 +57,18 @@ export async function getDatabaseRuntime(): Promise<DatabaseRuntime> {
 }
 
 export async function probeDatabaseConnection(): Promise<void> {
-  const { pool } = await getDatabaseRuntime()
-  let client: PoolClient | undefined
-
   try {
-    client = await pool.connect()
-  } finally {
-    client?.release()
+    const { pool } = await getDatabaseRuntime()
+    let client: PoolClient | undefined
+
+    try {
+      client = await pool.connect()
+    } finally {
+      client?.release()
+    }
+  } catch (error) {
+    logDatabaseConnectivityFailure(error)
+    throw error
   }
 }
 
