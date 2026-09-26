@@ -114,8 +114,12 @@ test("GET /ready returns sanitized 503 when DATABASE_URL and pg defaults are abs
   })
   assert.deepEqual(JSON.parse(child.stderr.trim()), {
     event: "database_readiness_failed",
+    diagnosticVersion: "R2",
     category: "CONFIGURATION",
     code: "DATABASE_URL_MISSING",
+    errorKind: "ERROR",
+    hasCause: false,
+    hasAggregateChildren: false,
     databaseUrlPresent: false,
     databaseUrlParseable: false,
     databaseUrlReferenceLiteral: false,
@@ -135,46 +139,157 @@ test("database connectivity classifier maps only allowlisted PostgreSQL and netw
     ["ECONNRESET", "NETWORK", "ECONNRESET"],
     ["EHOSTUNREACH", "NETWORK", "EHOSTUNREACH"],
     ["ENETUNREACH", "NETWORK", "ENETUNREACH"],
+    ["ENETDOWN", "NETWORK", "ENETDOWN"],
     ["SELF_SIGNED_CERT_IN_CHAIN", "TLS", "SELF_SIGNED_CERT_IN_CHAIN"],
     ["DEPTH_ZERO_SELF_SIGNED_CERT", "TLS", "DEPTH_ZERO_SELF_SIGNED_CERT"],
     ["CERT_HAS_EXPIRED", "TLS", "CERT_HAS_EXPIRED"],
   ]
 
   for (const [code, category, safeCode] of cases) {
-    assert.deepEqual(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code })), {
-      category,
-      code: safeCode,
-    })
+    const result = classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code }))
+    assert.equal(result.category, category)
+    assert.equal(result.code, safeCode)
+    assert.equal(result.errorKind, /^[0-9A-Z]{5}$/.test(code) ? "POSTGRES_ERROR" : "ERROR")
+    assert.equal(result.hasCause, false)
+    assert.equal(result.hasAggregateChildren, false)
   }
 
-  assert.deepEqual(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code: "ERR_SSL_PRIVATE_DETAIL" })), {
-    category: "TLS",
-    code: "TLS_ERROR",
-  })
-  assert.deepEqual(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code: "PRIVATE_UNKNOWN_CODE" })), {
-    category: "UNKNOWN",
-    code: "UNCLASSIFIED",
-  })
+  assert.equal(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code: "ERR_SSL_PRIVATE_DETAIL" })).code, "TLS_ERROR")
+  assert.equal(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code: "PRIVATE_UNKNOWN_CODE" })).code, "UNCLASSIFIED")
   for (const code of ["constructor", "__proto__"]) {
-    assert.deepEqual(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code })), {
-      category: "UNKNOWN",
-      code: "UNCLASSIFIED",
-    })
+    assert.equal(classifyDatabaseConnectivityError(Object.assign(new Error("ignored"), { code })).code, "UNCLASSIFIED")
   }
   const revokedErrorProxy = Proxy.revocable({}, {})
   revokedErrorProxy.revoke()
-  assert.deepEqual(classifyDatabaseConnectivityError(revokedErrorProxy.proxy), {
-    category: "UNKNOWN",
-    code: "UNCLASSIFIED",
+  assert.equal(classifyDatabaseConnectivityError(revokedErrorProxy.proxy).code, "UNCLASSIFIED")
+  assert.equal(classifyDatabaseConnectivityError(new Error("ordinary failure")).code, "UNCLASSIFIED")
+  assert.equal(classifyDatabaseConnectivityError(new TypeError("invalid input")).errorKind, "TYPE_ERROR")
+  assert.equal(classifyDatabaseConnectivityError({ arbitrary: true }).errorKind, "UNKNOWN")
+  assert.equal(classifyDatabaseConnectivityError(new Error("timeout exceeded when trying to connect")).code, "CONNECTION_TIMEOUT")
+})
+
+test("AggregateError children are classified safely with only address families", () => {
+  const ipv6Child = Object.assign(new Error("fake ipv6 2001:db8::beef"), {
+    code: "ENETUNREACH",
+    address: "2001:db8::beef",
   })
-  assert.deepEqual(classifyDatabaseConnectivityError(new Error("ordinary failure")), {
-    category: "UNKNOWN",
-    code: "UNCLASSIFIED",
+  const ipv4Child = Object.assign(new Error("fake ipv4 192.0.2.44"), {
+    code: "ECONNREFUSED",
+    address: "192.0.2.44",
+  })
+  const aggregate = new AggregateError(
+    [ipv6Child, ipv4Child],
+    "postgresql://fakeuser:fakepassword@secret.internal/fakedb",
+    { cause: new Error("fake cause secret material") },
+  )
+  const result = createSafeDatabaseConnectivityDiagnostic(aggregate, {
+    DATABASE_URL: "postgresql://fakeuser:fakepassword@secret.internal/fakedb",
+  })
+
+  assert.deepEqual(result, {
+    event: "database_readiness_failed",
+    diagnosticVersion: "R2",
+    category: "CONNECTION_REFUSED",
+    code: "ECONNREFUSED",
+    errorKind: "AGGREGATE",
+    hasCause: true,
+    hasAggregateChildren: true,
+    aggregate: true,
+    childErrorCount: 2,
+    childErrors: [
+      { category: "NETWORK", code: "ENETUNREACH", addressFamily: 6 },
+      { category: "CONNECTION_REFUSED", code: "ECONNREFUSED", addressFamily: 4 },
+    ],
+    databaseUrlPresent: true,
+    databaseUrlParseable: true,
+    databaseUrlReferenceLiteral: false,
+    protocolAccepted: true,
+  })
+
+  const serialized = JSON.stringify(result)
+  for (const forbidden of [
+    "2001:db8::beef",
+    "192.0.2.44",
+    "fakeuser",
+    "fakepassword",
+    "secret.internal",
+    "fakedb",
+    "postgresql://",
+    "fake cause secret material",
+  ]) {
+    assert.equal(serialized.includes(forbidden), false)
+  }
+
+  const manyChildren = new AggregateError(
+    Array.from({ length: 8 }, (_, index) => Object.assign(new Error("network"), { code: "ENETUNREACH", address: `192.0.2.${index + 1}` })),
+    "many children",
+  )
+  const bounded = classifyDatabaseConnectivityError(manyChildren)
+  assert.equal(bounded.childErrorCount, 8)
+  assert.equal(bounded.childErrors?.length, 6)
+})
+
+test("PostgreSQL SQLSTATE startup codes are allowlisted and unknown SQLSTATEs expose only their class", () => {
+  for (const code of ["08000", "08001", "08003", "08004", "08006", "08007", "08P01"]) {
+    const result = classifyDatabaseConnectivityError(Object.assign(new Error("private postgres detail"), { code }))
+    assert.equal(result.category, "POSTGRES_CONNECTION")
+    assert.equal(result.code, code)
+    assert.equal(result.errorKind, "POSTGRES_ERROR")
+  }
+  assert.deepEqual(
+    classifyDatabaseConnectivityError(Object.assign(new Error("private"), { code: "ZZ999" })),
+    {
+      category: "UNKNOWN",
+      code: "POSTGRES_UNCLASSIFIED",
+      errorKind: "POSTGRES_ERROR",
+      hasCause: false,
+      hasAggregateChildren: false,
+      sqlstateClass: "ZZ",
+    },
+  )
+  assert.equal(classifyDatabaseConnectivityError(Object.assign(new Error("private"), { code: "57P03" })).category, "DATABASE_NOT_READY")
+  assert.equal(classifyDatabaseConnectivityError(Object.assign(new Error("private"), { code: "53300" })).category, "CONNECTION_LIMIT")
+})
+
+test("pg_hba and SASL messages yield only safe classifications", () => {
+  const pgHbaError = Object.assign(
+    new Error("no pg_hba.conf entry for host 192.0.2.80, user fakeuser, database fakedb, SSL encryption"),
+    { code: "28000" },
+  )
+  const pgHbaDiagnostic = createSafeDatabaseConnectivityDiagnostic(pgHbaError, {
+    DATABASE_URL: "postgresql://fakeuser:fakepassword@secret.internal/fakedb",
   })
   assert.deepEqual(
-    classifyDatabaseConnectivityError(new Error("timeout exceeded when trying to connect")),
-    { category: "TIMEOUT", code: "CONNECTION_TIMEOUT" },
+    {
+      category: pgHbaDiagnostic.category,
+      code: pgHbaDiagnostic.code,
+      pgHbaRejected: pgHbaDiagnostic.pgHbaRejected,
+      connectionEncryption: pgHbaDiagnostic.connectionEncryption,
+    },
+    {
+      category: "AUTHORIZATION",
+      code: "PG_HBA_REJECTED",
+      pgHbaRejected: true,
+      connectionEncryption: "SSL",
+    },
   )
+  const safePgHba = JSON.stringify(pgHbaDiagnostic)
+  for (const forbidden of ["192.0.2.80", "fakeuser", "fakedb", "secret.internal", "fakepassword", "no pg_hba.conf entry"]) {
+    assert.equal(safePgHba.includes(forbidden), false)
+  }
+
+  const noEncryption = classifyDatabaseConnectivityError(Object.assign(new Error("no pg_hba.conf entry; no encryption"), { code: "28000" }))
+  assert.equal(noEncryption.connectionEncryption, "NONE")
+  const genericAuthorization = classifyDatabaseConnectivityError(Object.assign(new Error("authorization denied"), { code: "28000" }))
+  assert.equal(genericAuthorization.code, "28000")
+  assert.equal(genericAuthorization.pgHbaRejected, false)
+
+  const sasl = classifyDatabaseConnectivityError(
+    new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string"),
+  )
+  assert.equal(sasl.category, "CONFIGURATION")
+  assert.equal(sasl.code, "SASL_PASSWORD_NOT_STRING")
+  assert.equal(JSON.stringify(sasl).includes("client password"), false)
 })
 
 test("DATABASE_URL diagnostics expose booleans only", () => {
@@ -225,8 +340,12 @@ test("safe diagnostic log never includes error or connection secrets", () => {
   })
   assert.deepEqual(safeDiagnostic, {
     event: "database_readiness_failed",
+    diagnosticVersion: "R2",
     category: "UNKNOWN",
     code: "UNCLASSIFIED",
+    errorKind: "ERROR",
+    hasCause: false,
+    hasAggregateChildren: false,
     databaseUrlPresent: true,
     databaseUrlParseable: true,
     databaseUrlReferenceLiteral: false,
@@ -252,7 +371,11 @@ test("safe diagnostic log never includes error or connection secrets", () => {
     "databaseUrlParseable",
     "databaseUrlPresent",
     "databaseUrlReferenceLiteral",
+    "diagnosticVersion",
+    "errorKind",
     "event",
+    "hasAggregateChildren",
+    "hasCause",
     "protocolAccepted",
   ])
 })
