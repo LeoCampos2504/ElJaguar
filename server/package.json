@@ -1,0 +1,20 @@
+{
+  "name": "remis-norte-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/api.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/api.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/health.test.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.12.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
