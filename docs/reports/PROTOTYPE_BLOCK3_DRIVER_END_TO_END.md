@@ -45,7 +45,13 @@
 
 ## Deployment certification
 
-Pending push of the product commit and subsequent Railway TESTING deployment. After push, verify direct web routes and SPA fallback, API `/health` and `/ready`, record deployed source SHA, then commit this report's certification update separately.
+- Product commit: `5d636b45fca9fce39dfa2eb60d37f7ed8e1de6db` (`feat: add connected driver demo flow`), pushed to `origin/testing`.
+- Deployed web bundle matches the local production build: `/assets/index-qnqOh1T-.js`; the deployed bundle contains the driver UI marker. The matching CSS asset is `/assets/index-6OtyiA35.css`.
+- Web HTTP GET: `/`, `/cliente`, `/chofer`, `/chofer/ingreso`, and `/chofer/viajes` all returned 200. Direct Chofer URLs return the SPA shell and load the matching Block 3 bundle.
+- API HTTP GET `/health`: 200, `{"status":"ok","service":"remis-norte-api"}`.
+- API HTTP GET `/ready`: 200, `{"status":"ready","service":"remis-norte-api","database":"reachable"}`. This was a read-only readiness check; no SQL or database writes were issued.
+- `origin/testing` matches local HEAD after push. `main` remains at `4804e8be5b478e0ea0fb92f78e2736fbf61c39b4`.
+- Railway configuration was not changed. The TESTING deployments were initiated by the authorized push to `testing`.
 
 ## Next action
 
