@@ -64,7 +64,7 @@ Remote smoke against the web URL:
 
 ## Backend regression and scope gates
 
-After the web deployment, the existing API remained rooted at `/server`. Its root still returns the expected HTTP 404; `/health` returned HTTP 200 with `{"status":"ok","service":"remis-norte-api"}`, and `/ready` returned HTTP 200 with status `ready`. API configuration was not edited and no explicit API redeploy command was run. Railway's API status reflects the pushed `testing` commit, so the branch push may also have triggered its normal automatic deployment; the API regression checks passed afterward.
+After the web deployment, the existing API remained rooted at `/server`. Its root still returns the expected HTTP 404; `/health` returned HTTP 200 with `{"status":"ok","service":"remis-norte-api"}`, and `/ready` returned HTTP 200 with status `ready`. API configuration was not edited and no explicit API redeploy command was run. Railway reports the pushed `testing` commit as the API's latest deployment, confirming the branch push also triggered its normal automatic deployment; the API regression checks passed afterward.
 
 - `API_HEALTH_AFTER_WEB_DEPLOY=PASS`
 - `API_READY_AFTER_WEB_DEPLOY=PASS`
