@@ -111,6 +111,7 @@ export type DemoAction =
   | { type: 'SET_DESTINATION'; location: DemoLocation | null }
   | { type: 'REQUEST_TRIP' }
   | { type: 'START_DISPATCH' }
+  | { type: 'RETRY_DISPATCH' }
   | { type: 'ACCEPT_CURRENT_OFFER' }
   | { type: 'REJECT_CURRENT_OFFER' }
   | { type: 'EXPIRE_CURRENT_OFFER' }

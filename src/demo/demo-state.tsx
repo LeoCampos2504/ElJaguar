@@ -14,6 +14,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     quoteTrip: () => quoteTrip(state),
     requestTrip: () => dispatch({ type: 'REQUEST_TRIP' }),
     startDispatch: () => dispatch({ type: 'START_DISPATCH' }),
+    retryDispatch: () => dispatch({ type: 'RETRY_DISPATCH' }),
     acceptCurrentOffer: () => dispatch({ type: 'ACCEPT_CURRENT_OFFER' }),
     rejectCurrentOffer: () => dispatch({ type: 'REJECT_CURRENT_OFFER' }),
     expireCurrentOffer: () => dispatch({ type: 'EXPIRE_CURRENT_OFFER' }),

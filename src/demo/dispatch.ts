@@ -183,6 +183,15 @@ function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
     }
     case 'START_DISPATCH':
       return startDispatch(state)
+    case 'RETRY_DISPATCH': {
+      if (state.activeTrip?.status !== 'REQUESTED' || state.dispatch.status !== 'NO_CANDIDATES') return state
+      const retryState: DemoState = {
+        ...state,
+        currentOffer: null,
+        dispatch: { status: 'SEARCHING', candidateDriverIds: getSortedCandidates(state).map((driver) => driver.id), attemptedDriverIds: [], currentOfferId: null },
+      }
+      return startDispatch(retryState)
+    }
     case 'ACCEPT_CURRENT_OFFER': {
       if (!canDriverAccept(state) || !state.activeTrip) return state
       const resolved = withResolvedOffer(state, 'ACCEPTED')

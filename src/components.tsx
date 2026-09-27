@@ -5,11 +5,12 @@ import {
   Clock3, Home, MapPin, Menu, Navigation, Phone, Search, Star, UserRound, X,
 } from 'lucide-react'
 import type { Driver, TripStatus } from './types'
-import { customer, driver as defaultDriver, tripMock } from './mock-data'
+import { driver as defaultDriver, tripMock } from './mock-data'
+import type { DemoDriver, DemoFare, DemoVehicle } from './demo/types'
 
 const iconMap = { home: Home, briefcase: BriefcaseBusiness, bus: BusFront, 'map-pin': MapPin }
 
-export function AppHeader({ back, title, onBack, menu = true }: { back?: boolean; title?: string; onBack?: () => void; menu?: boolean }) {
+export function AppHeader({ back, title, onBack, menu = false }: { back?: boolean; title?: string; onBack?: () => void; menu?: boolean }) {
   const navigate = useNavigate()
   return (
     <header className="app-header">
@@ -46,7 +47,7 @@ export function SecondaryButton({ children, onClick }: { children: ReactNode; on
   return <button className="secondary-button" onClick={onClick}>{children}</button>
 }
 
-export function AppMap({ mode = 'home' }: { mode?: 'home' | 'preview' | 'searching' | 'assigned' | 'arrived' | 'in-progress' }) {
+export function AppMap({ mode = 'home', originLabel, destinationLabel, driverLabel }: { mode?: 'home' | 'preview' | 'searching' | 'assigned' | 'arrived' | 'in-progress'; originLabel?: string; destinationLabel?: string; driverLabel?: string }) {
   const withRoute = mode !== 'home' && mode !== 'searching'
   return <div className={`app-map map-${mode}`} aria-label="Mapa simulado de Libertador General San Martín">
     <div className="map-topographic one" /><div className="map-topographic two" />
@@ -58,6 +59,7 @@ export function AppMap({ mode = 'home' }: { mode?: 'home' | 'preview' | 'searchi
     <MapMarker variant="current" className="map-current" />
     {withRoute && <><MapMarker variant="destination" className="map-destination" />{mode !== 'preview' && <div className="map-car"><CarFront size={17} /></div>}</>}
     {mode === 'searching' && <div className="map-search-pulse" />}
+    {(originLabel || destinationLabel || driverLabel) && <div className="map-demo-labels">{originLabel && <span>Origen: {originLabel}</span>}{destinationLabel && <span>Destino: {destinationLabel}</span>}{driverLabel && <span>Móvil demo: {driverLabel}</span>}</div>}
     {mode === 'home' && <div className="map-location-caption"><Navigation size={13} fill="currentColor" /> Ubicación aproximada</div>}
   </div>
 }
@@ -70,8 +72,8 @@ export function BottomSheet({ children, className = '' }: { children: ReactNode;
   return <section className={`bottom-sheet ${className}`}><div className="sheet-handle" />{children}</section>
 }
 
-export function LocationRow({ destination = false, title, address, onClick }: { destination?: boolean; title: string; address?: string; onClick?: () => void }) {
-  return <button className="location-row" onClick={onClick}><span className={`row-icon ${destination ? 'destination' : ''}`}>{destination ? <MapPin size={18} /> : <Navigation size={18} />}</span><span className="row-text"><strong>{title}</strong>{address && <small>{address}</small>}</span><ChevronRight size={18} className="muted-icon" /></button>
+export function LocationRow({ destination = false, title, address, onClick, disabled = false }: { destination?: boolean; title: string; address?: string; onClick?: () => void; disabled?: boolean }) {
+  return <button className="location-row" onClick={onClick} disabled={disabled}><span className={`row-icon ${destination ? 'destination' : ''}`}>{destination ? <MapPin size={18} /> : <Navigation size={18} />}</span><span className="row-text"><strong>{title}</strong>{address && <small>{address}</small>}</span>{!disabled && <ChevronRight size={18} className="muted-icon" />}</button>
 }
 
 export function QuickDestination({ label, address, icon, onClick }: { label: string; address: string; icon: keyof typeof iconMap; onClick: () => void }) {
@@ -79,12 +81,18 @@ export function QuickDestination({ label, address, icon, onClick }: { label: str
   return <button className="quick-destination" onClick={onClick}><span className="quick-icon"><Icon size={17} /></span><span><strong>{label}</strong><small>{address}</small></span></button>
 }
 
-export function FareCard({ compact = false }: { compact?: boolean }) {
-  return <div className={`fare-card ${compact ? 'compact' : ''}`}><div className="fare-card-top"><span className="eyebrow">Tarifa por zona</span><span className="fare-chip">{tripMock.zoneLabel}</span></div><div className="fare-price">{tripMock.price}</div><p>Precio vigente según cuadro tarifario actual</p>{!compact && <div className="fare-details"><span><Clock3 size={16} /> Móvil en 3-5 min</span><span><CarFront size={16} /> Remis estándar</span><span><Navigation size={16} /> Pago: Efectivo o Mercado Pago</span></div>}</div>
+export function FareCard({ compact = false, fare, routeLabel }: { compact?: boolean; fare?: DemoFare | null; routeLabel?: string }) {
+  if (fare === null) return null
+  return <div className={`fare-card ${compact ? 'compact' : ''}`}><div className="fare-card-top"><span className="eyebrow">Tarifa por zona</span><span className="fare-chip">{routeLabel ?? tripMock.zoneLabel}</span></div><div className="fare-price">{fare?.price ?? tripMock.price}</div><p>Precio vigente según cuadro tarifario actual</p>{!compact && <div className="fare-details"><span><Clock3 size={16} /> Móvil en 3-5 min (estimación demo)</span><span><CarFront size={16} /> Remis estándar</span><span><Navigation size={16} /> Pago: Efectivo o Mercado Pago</span></div>}</div>
 }
 
-export function DriverCard({ compact = false }: { compact?: boolean }) {
-  return <div className={`driver-card ${compact ? 'compact' : ''}`}><div className="driver-avatar">CP</div><div className="driver-copy"><strong>{defaultDriver.name}</strong><span>{defaultDriver.vehicle.model}</span>{!compact && <span>{defaultDriver.vehicle.plate} · Móvil {defaultDriver.vehicle.mobile}</span>}</div>{!compact && <button className="round-action" aria-label="Llamar"><Phone size={17} /></button>}</div>
+export function DriverCard({ compact = false, demoDriver, demoVehicle }: { compact?: boolean; demoDriver?: DemoDriver; demoVehicle?: DemoVehicle | null }) {
+  const name = demoDriver?.name ?? defaultDriver.name
+  const vehicleName = demoVehicle ? `${demoVehicle.make} ${demoVehicle.model}` : defaultDriver.vehicle.model
+  const plate = demoVehicle?.plate ?? defaultDriver.vehicle.plate
+  const mobile = demoVehicle?.mobile ?? defaultDriver.vehicle.mobile
+  const initials = name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()
+  return <div className={`driver-card ${compact ? 'compact' : ''}`}><div className="driver-avatar" style={demoDriver ? { backgroundColor: `${demoDriver.color}22`, color: demoDriver.color } : undefined}>{initials}</div><div className="driver-copy"><strong>{name}</strong><span>{vehicleName}</span>{!compact && <span>{plate} · Móvil {mobile}{demoVehicle ? ` · ${demoVehicle.color}` : ''}</span>}</div>{!compact && <button className="round-action" aria-label="Llamar al chofer (no disponible en demo)" disabled title="Llamada no disponible en esta demo"><Phone size={17} /></button>}</div>
 }
 
 export function TripProgress({ status }: { status: TripStatus }) {
@@ -106,10 +114,8 @@ export function FareUpdateDialog({ onClose, onView }: { onClose: () => void; onV
   return <div className="dialog-backdrop"><div className="fare-dialog"><button className="dialog-close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button><div className="dialog-icon"><Navigation size={21} /></div><span className="eyebrow">Información importante</span><h2>Actualización de tarifas</h2><p>Desde el 25/09/2026 se encuentra vigente un nuevo cuadro tarifario.</p><div className="dialog-actions"><SecondaryButton onClick={onView}>Ver tarifas</SecondaryButton><PrimaryButton onClick={onClose}>Entendido</PrimaryButton></div></div></div>
 }
 
-export function DemoPanel({ nextLabel, onNext }: { nextLabel: string; onNext: () => void }) {
-  const isDemo = new URLSearchParams(window.location.search).get('demo') === '1'
-  if (!isDemo) return null
-  return <div className="demo-panel"><span><span className="demo-dot" /> Modo demo</span><button onClick={onNext}>{nextLabel} <ArrowRight size={14} /></button></div>
+export function DemoPanel({ nextLabel, onNext, actions = [] }: { nextLabel?: string; onNext?: () => void; actions?: { label: string; onClick: () => void }[] }) {
+  return <section className="demo-panel" aria-label="Controles de simulación"><span><span className="demo-dot" /> DEMO · DEBUG · SIMULACIÓN</span><div className="demo-actions">{actions.map((action) => <button key={action.label} onClick={action.onClick}>{action.label} <ArrowRight size={14} /></button>)}{nextLabel && onNext && <button onClick={onNext}>{nextLabel} <ArrowRight size={14} /></button>}</div></section>
 }
 
 export function SearchField({ value, onChange, autoFocus = false, onFocus }: { value: string; onChange: (value: string) => void; autoFocus?: boolean; onFocus?: () => void }) {
@@ -120,8 +126,8 @@ export function ScreenTitle({ eyebrow, title, subtitle }: { eyebrow?: string; ti
   return <div className="screen-title">{eyebrow && <span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>
 }
 
-export function TripSummary({ showPayment = true, destination = tripMock.destination }: { showPayment?: boolean; destination?: string }) {
-  return <div className="trip-summary"><div><span>Origen</span><strong>{tripMock.origin}</strong></div><div><span>Destino</span><strong>{destination}</strong></div>{showPayment && <div><span>Pago</span><strong>{tripMock.payment}</strong></div>}</div>
+export function TripSummary({ showPayment = true, origin = tripMock.origin, destination = tripMock.destination }: { showPayment?: boolean; origin?: string; destination?: string }) {
+  return <div className="trip-summary"><div><span>Origen</span><strong>{origin}</strong></div><div><span>Destino</span><strong>{destination}</strong></div>{showPayment && <div><span>Pago</span><strong>{tripMock.payment}</strong></div>}</div>
 }
 
 export function DriverInfo({ status }: { status: 'assigned' | 'arrived' | 'in-progress' }) {

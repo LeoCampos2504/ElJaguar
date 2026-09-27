@@ -10,6 +10,7 @@ export type DemoContextValue = {
   quoteTrip: () => DemoFareQuote
   requestTrip: () => void
   startDispatch: () => void
+  retryDispatch: () => void
   acceptCurrentOffer: () => void
   rejectCurrentOffer: () => void
   expireCurrentOffer: () => void
