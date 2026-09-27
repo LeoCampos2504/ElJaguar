@@ -2,12 +2,19 @@
 
 ## Status and baseline
 
-`PROTOTYPE_BLOCK5_STATUS=CANDIDATE_PENDING_OPERATOR_FINAL_SMOKE`
+`PROTOTYPE_BLOCK5_STATUS=PASS`
+`BLOCK5_TECHNICAL_GATE=PASS`
+`BLOCK5_OPERATOR_PRESENTATION_GATE=PASS`
+`BLOCK5_FINAL_GATE=PASS`
+`PROTOTYPE_PRESENTATION_READY=YES`
+`FINAL_OPERATOR_PRESENTATION_SMOKE=PASS`
+`FINAL_PRESENTATION_BRAND=EL JAGUAR`
+`OPERATOR_CONFIRMED_AT=2026-09-27`
 
 - Branch: `testing`.
 - `PRE_BLOCK5_HEAD=6532015afe1f6ecd63dfcc1e5a5e5bafba2b6f57` (`origin/testing` matched at preflight).
 - `main` remained `4804e8be5b478e0ea0fb92f78e2736fbf61c39b4`.
-- The product gates and static HTTP smoke passed. This does not certify the final visual/interactive presentation; the operator smoke remains pending.
+- Technical gates and static HTTP smoke passed. The operator reports that the final physical presentation smoke passed on 2026-09-27, confirmed the visible EL JAGUAR brand, and approved this prototype for presentation without further demo features. This certification records the operator's confirmation; it is not an agent-observed UI test.
 - Blocks 1–4 are preserved. The single-active-trip demo limit, exclusive sequential offers, and manual override acceptance rule are unchanged.
 
 ## Presentation landing and shared role navigation
@@ -41,12 +48,12 @@
 - Reducer state is written locally after changes. There is no storage-event listener, `BroadcastChannel`, or synchronization protocol. Same-tab role views share state; cross-tab live synchronization is not implemented/claimed. Data is not shared across devices.
 - Driver session identity is held in React memory only and is not serialized. A page refresh keeps the demo trip but asks the operator to choose a Driver profile again.
 - DemoPanel is hidden unless `debug=1`. Destination parsing uses `URLSearchParams`, including combined links such as `?destino=Terminal&debug=1`.
-- Demo limitations remain `DEMO_CONCURRENT_ACTIVE_TRIPS_LIMIT=1`, no cross-device sharing, no live driver movement, no runtime route service, and `DATABASE_IMPLEMENTATION_STATUS=PAUSED_AFTER_PREPARATION`.
+- Demo limitations remain deliberate and do not block presentation: `DEMO_CONCURRENT_ACTIVE_TRIPS_LIMIT=1`, `SAME_TAB_SHARED_STATE=YES`, `CROSS_TAB_REALTIME=NO`, `CROSS_DEVICE_SHARED_STATE=NO`, `LIVE_DRIVER_MOVEMENT=NO`, `RUNTIME_ROUTING_CALLS=NO`, `DRIVER_SESSION_PERSISTED=NO`, and `DATABASE_IMPLEMENTATION_STATUS=PAUSED_AFTER_PREPARATION`.
 - User-facing status/source labels use Spanish terminology; Central no longer renders raw offer or dispatch status codes. No finance UI was added.
 
 ## Verification
 
-- `npm test`: PASS, 57 tests; all previous Block 1–4 suites remain included. New coverage checks incoming offer exclusivity and A→B handoff, shared assigned trip visibility, quick-destination coordinates, precomputed/missing geometry, debug query behavior, storage rehydration/corruption/reset, and absence of persisted driver identity.
+- `npm test`: PASS, 58 tests; all previous Block 1–4 suites remain included. This count includes the branding regression test added in the final branding pass. Coverage checks incoming offer exclusivity and A→B handoff, shared assigned trip visibility, quick-destination coordinates, precomputed/missing geometry, debug query behavior, storage rehydration/corruption/reset, absence of persisted driver identity, and canonical visible branding.
 - `node_modules\.bin\tsc -b --pretty false`: PASS.
 - `npm run build`: PASS. Vite output includes `RealMap` as a separate approximately 158 kB chunk and the main JavaScript chunk remains below 500 kB.
 - `git diff --check`: PASS; only line-ending conversion notices.
@@ -55,7 +62,7 @@
 - Secret scan: PASS; no API keys, credentials, database URLs, or private endpoints were found in the scoped source/test/package diff.
 - Local static-server smoke: PASS. `/`, `/demo`, `/cliente`, `/chofer`, `/central`, `/cliente/viajes`, `/chofer/viajes`, and `/central/viajes` returned HTTP 200 with the SPA shell; built JavaScript and CSS assets returned 200.
 - TESTING API regression (read-only): `/health` returned HTTP 200; `/ready` returned HTTP 200 and reported `database=reachable`. The readiness endpoint is a connectivity probe; this block ran no SQL or migration and made no database mutation or connection-setting change.
-- Computer Use, Playwright, and browser visual automation were not used. Local physical UI/responsive review remains pending and is not represented as PASS.
+- Computer Use, Playwright, and browser visual automation were not used as agent QA gates. The operator separately reports completing and passing the final physical presentation smoke on 2026-09-27.
 
 ## Railway TESTING deployment evidence
 
@@ -63,7 +70,7 @@
 - After the correction deployed, the presentation URL `https://testing-jaguar-web-testing.up.railway.app/demo` served bundle `/assets/index-BSJJwxWl.js` (367,837 bytes) and stylesheet `/assets/index-DdE4LSj0.css` (79,243 bytes). The served stylesheet includes Leaflet container, tile-pane, and attribution selectors and matches the local production build outputs.
 - `/`, `/demo`, `/cliente`, `/chofer`, `/central`, `/cliente/viajes`, `/chofer/viajes`, and `/central/viajes` each returned HTTP 200 with the same current bundle and stylesheet, confirming SPA fallback on the deployed service.
 - Read-only API checks after deployment: `GET https://testing-jaguar-testing.up.railway.app/health` returned HTTP 200 with `{"status":"ok","service":"remis-norte-api"}`; `/ready` returned HTTP 200 with `{"status":"ready","service":"remis-norte-api","database":"reachable"}`. `/ready` probes connectivity; this block ran no SQL or migration, made no database mutation, and changed no Railway setting.
-- These are deployment/HTTP checks, not a visual or interactive operator certification. The presentation remains a candidate until the physical final smoke below is performed.
+- These are deployment/HTTP checks and are separate from the operator's physical smoke confirmation recorded above.
 
 ## Exact presentation script
 
@@ -92,7 +99,7 @@ The flow requires no debug query, page refresh, URL editing, terminal, or Railwa
 `PRODUCTION_TOUCHED=NO`
 `MAIN_BRANCH_TOUCHED=NO`
 
-Next action: the operator opens `https://testing-jaguar-web-testing.up.railway.app/demo` and physically performs the script above, paying particular attention to OSM tiles/route, Driver A reject → Driver B offer, role changes, map states, completion, and reset. Keep PostgreSQL and migrations paused. After operator confirmation, certify `PROTOTYPE_PRESENTATION_READY=YES`; do not resume database work automatically.
+The operator reports completing the script above and confirming its visible brand, role flows, map presentation, trip completion, and reset. PostgreSQL and migrations remain paused; no database/backend phase is authorized by this certification.
 
 ## Final presentation branding
 
@@ -103,4 +110,67 @@ Next action: the operator opens `https://testing-jaguar-web-testing.up.railway.a
 `BRANDING_COMMIT=25f6c54a96c8088628a59eda88078ec35ddf28c2`
 `INTERNAL_PACKAGE_NAME_CHANGED=NO`
 
-After automatic TESTING deployment, `GET https://testing-jaguar-web-testing.up.railway.app/demo` returned HTTP 200 with title `EL JAGUAR · Prototipo` and bundle `/assets/index-NDb7OKxq.js`. The served JavaScript contains `EL JAGUAR` and has no old visible brand reference. `/`, `/demo`, `/cliente`, `/chofer`, `/central`, and the three role history routes all returned HTTP 200 with that same bundle. This static HTTP verification does not replace the operator's final physical smoke; candidate status remains pending.
+After automatic TESTING deployment, `GET https://testing-jaguar-web-testing.up.railway.app/demo` returned HTTP 200 with title `EL JAGUAR · Prototipo` and bundle `/assets/index-NDb7OKxq.js`. The served JavaScript contains `EL JAGUAR` and has no old visible brand reference. `/`, `/demo`, `/cliente`, `/chofer`, `/central`, and the three role history routes all returned HTTP 200 with that same bundle. The operator's separate physical final smoke confirmation is recorded above.
+
+## Final prototype certification
+
+`DEMO_LANDING=PASS`
+`CLIENT_DEMO=PASS`
+`DRIVER_DEMO=PASS`
+`CENTRAL_DEMO=PASS`
+`SAME_DEVICE_REQUEST_FLOW=PASS`
+`INCOMING_DRIVER_REQUEST_ANIMATION=PASS`
+`STRICT_SEQUENTIAL_EXCLUSIVE_DISPATCH=PASS`
+`MAX_SIMULTANEOUS_PENDING_OFFERS=1`
+`DRIVER_ACCEPT_REJECT=PASS`
+`REAL_LOCAL_MAP=PASS`
+`REAL_ROAD_ROUTE=PASS`
+`CLIENT_REAL_MAP=PASS`
+`DRIVER_REAL_MAP=PASS`
+`CENTRAL_REAL_MAP=PASS`
+`CLIENT_DRIVER_CENTRAL_SHARED_STATE=PASS`
+`RESET_SCENARIO=PASS`
+`REFRESH_PERSISTENCE=PASS`
+`DEBUG_HIDDEN_BY_DEFAULT=PASS`
+`FINAL_PRESENTATION_BRAND=EL JAGUAR`
+`OLD_VISIBLE_BRAND_REFERENCES=0`
+
+The capabilities above are certified for the presentation demo based on the technical evidence and the operator's reported final smoke. Deliberate prototype limitations are not production capabilities.
+
+`DEMO_CONCURRENT_ACTIVE_TRIPS_LIMIT=1`
+`SAME_TAB_SHARED_STATE=YES`
+`CROSS_TAB_REALTIME=NO`
+`CROSS_DEVICE_SHARED_STATE=NO`
+`LIVE_DRIVER_MOVEMENT=NO`
+`RUNTIME_ROUTING_CALLS=NO`
+`DRIVER_SESSION_PERSISTED=NO`
+`DATABASE_IMPLEMENTATION_STATUS=PAUSED_AFTER_PREPARATION`
+
+These are deliberate prototype limitations and do not block presentation.
+
+`PROTOTYPE_DEVELOPMENT_STATUS=FROZEN_FOR_PRESENTATION`
+`NEXT_PRODUCT_PHASE=NOT_AUTHORIZED`
+
+Do not automatically start real database work, migrations, realtime, multi-device synchronization, real login, GPS, tracking, payments, production deployment, or real operational integrations. Any next product phase requires new authorization.
+
+Recommended presentation build: `/demo` → reset → Client → request → Driver A → reject → Driver B → accept → advance trip → Client → Central → finish → history. This certification and tag `prototype-demo-v1` are the recommended version for presenting the EL JAGUAR prototype.
+
+## Final closure
+
+PROTOTYPE_BLOCK5_STATUS=PASS
+
+BLOCK5_TECHNICAL_GATE=PASS
+
+BLOCK5_OPERATOR_PRESENTATION_GATE=PASS
+
+BLOCK5_FINAL_GATE=PASS
+
+PROTOTYPE_PRESENTATION_READY=YES
+
+PROTOTYPE_DEVELOPMENT_STATUS=FROZEN_FOR_PRESENTATION
+
+FINAL_PRESENTATION_BRAND=EL JAGUAR
+
+FINAL_TAG=prototype-demo-v1
+
+NEXT_PRODUCT_PHASE=NOT_AUTHORIZED
