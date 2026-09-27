@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { quickDestinations } from '../src/mock-data.ts'
 import { getDestinationFromSearch, isDemoDebugEnabled } from '../src/demo/presentation-utils.ts'
 import { findDemoLocation } from '../src/client-flow.ts'
@@ -7,6 +8,18 @@ import { demoReducer } from '../src/demo/dispatch.ts'
 import { DEMO_DRIVER_LOCATIONS, DEMO_MAP_LOCATIONS, getMapLocationForZone } from '../src/demo/map-locations.ts'
 import { DEMO_ROUTE_FIXTURES, getDemoRouteGeometry, getDriverApproachGeometry } from '../src/demo/map-routes.ts'
 import { DEMO_STORAGE_KEY, loadDemoState, persistDemoState } from '../src/demo/demo-storage.ts'
+
+test('presentation landing and document metadata use the canonical El Jaguar brand', () => {
+  const landing = readFileSync(new URL('../src/presentation/DemoLanding.tsx', import.meta.url), 'utf8')
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+  const temporaryBrand = ['Remis', 'Norte'].join(' ')
+
+  assert.match(landing, /EL JAGUAR/)
+  assert.doesNotMatch(landing, new RegExp(temporaryBrand, 'i'))
+  assert.match(html, /<title>EL JAGUAR · Prototipo<\/title>/)
+  assert.match(html, /Prototipo operativo de EL JAGUAR/)
+  assert.doesNotMatch(html, new RegExp(temporaryBrand, 'i'))
+})
 
 function initialState() {
   return {

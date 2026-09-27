@@ -21,7 +21,7 @@ export function AppHeader({ back, title, onBack, menu = false }: { back?: boolea
     <header className="app-header">
       <div className="header-leading">
         {back ? <button className="icon-button" onClick={onBack ?? (() => navigate(-1))} aria-label="Volver"><ArrowLeft size={20} /></button> : <div className="brand-mark"><CarFront size={18} /></div>}
-        <div className="brand-copy"><span>{title ?? 'Remis Norte'}</span>{!title && <small>PROTOTIPO</small>}</div>
+        <div className="brand-copy"><span>{title ?? 'EL JAGUAR'}</span>{!title && <small>PROTOTIPO</small>}</div>
       </div>
       {menu && !back && <button className="icon-button" aria-label="Menú"><Menu size={21} /></button>}
     </header>

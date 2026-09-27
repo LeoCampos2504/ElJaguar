@@ -60,7 +60,7 @@ function CentralLayout({ children, title }: { children: ReactNode; title: string
   const navigate = useNavigate()
   return <div className="central-shell">
     <aside className="central-sidebar">
-      <div className="central-brand"><span className="central-brand-mark"><CarFront size={20} /></span><span><strong>Remis Norte</strong><small>Central operativa</small></span></div>
+      <div className="central-brand"><span className="central-brand-mark"><CarFront size={20} /></span><span><strong>EL JAGUAR</strong><small>Central operativa</small></span></div>
       <div className="central-demo-tag"><span />Central · Modo demo</div>
       <nav className="central-sidebar-nav" aria-label="Navegación Central">{centralLinks.map(({ label, path: route, icon: Icon }) => <button key={route} className={path === route || route !== '/central/inicio' && path.startsWith(route) ? 'active' : ''} onClick={() => navigate(route)}><Icon size={18} /><span>{label}</span>{path === route && <i />}</button>)}</nav>
       <div className="central-sidebar-foot"><strong>Datos de demostración</strong><span>No persisten al recargar ni se sincronizan entre pestañas.</span></div>
