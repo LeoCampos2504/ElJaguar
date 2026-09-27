@@ -12,7 +12,7 @@
 
 ## Presentation landing and shared role navigation
 
-- `/` redirects to `/demo`. The landing identifies Remis Norte as an operational prototype and gives the local context: Libertador General San Martín, Calilegua, Jujuy.
+- `/` redirects to `/demo`. The landing identifies EL JAGUAR as an operational prototype and gives the local context: Libertador General San Martín, Calilegua, Jujuy.
 - The three cards open Client, Driver, and Central. The existing role selector remains available in each flow and keeps the same mounted `DemoProvider`; switching views does not reset the active trip or offer.
 - When returning to Client with an active trip, the selector opens that trip's current state route. After Driver accepts, Client and Central therefore show the same assigned trip.
 - `/demo` includes `REINICIAR ESCENARIO`: it resets the demo reducer and clears the in-memory driver session, then shows “Escenario reiniciado”.
@@ -93,3 +93,14 @@ The flow requires no debug query, page refresh, URL editing, terminal, or Railwa
 `MAIN_BRANCH_TOUCHED=NO`
 
 Next action: the operator opens `https://testing-jaguar-web-testing.up.railway.app/demo` and physically performs the script above, paying particular attention to OSM tiles/route, Driver A reject → Driver B offer, role changes, map states, completion, and reset. Keep PostgreSQL and migrations paused. After operator confirmation, certify `PROTOTYPE_PRESENTATION_READY=YES`; do not resume database work automatically.
+
+## Final presentation branding
+
+`FINAL_PRESENTATION_BRAND=EL JAGUAR`
+`TEMPORARY_PROTOTYPE_NAME_REMOVED=YES`
+`BRANDING_PASS=PASS`
+`OLD_VISIBLE_BRAND_REFERENCES=0` (checked in `index.html`, `src`, and `tests`)
+`BRANDING_COMMIT=25f6c54a96c8088628a59eda88078ec35ddf28c2`
+`INTERNAL_PACKAGE_NAME_CHANGED=NO`
+
+After automatic TESTING deployment, `GET https://testing-jaguar-web-testing.up.railway.app/demo` returned HTTP 200 with title `EL JAGUAR · Prototipo` and bundle `/assets/index-NDb7OKxq.js`. The served JavaScript contains `EL JAGUAR` and has no old visible brand reference. `/`, `/demo`, `/cliente`, `/chofer`, `/central`, and the three role history routes all returned HTTP 200 with that same bundle. This static HTTP verification does not replace the operator's final physical smoke; candidate status remains pending.
