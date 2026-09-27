@@ -1,10 +1,12 @@
-import { useReducer, type ReactNode } from 'react'
+import { useEffect, useReducer, type ReactNode } from 'react'
 import { demoReducer, quoteTrip } from './dispatch'
 import { createInitialDemoState } from './fixtures'
+import { loadDemoState, persistDemoState } from './demo-storage'
 import { DemoContext, type DemoContextValue } from './demo-context'
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(demoReducer, undefined, createInitialDemoState)
+  const [state, dispatch] = useReducer(demoReducer, createInitialDemoState, (createState) => loadDemoState(createState))
+  useEffect(() => persistDemoState(state), [state])
 
   const value: DemoContextValue = {
     state,

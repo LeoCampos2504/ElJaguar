@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowRight, CarFront, CheckCircle2, Clock3, Home, MapPin, Navigation, UserRound } from 'lucide-react'
-import { AppHeader, DemoRoleSwitcher, PageContainer, PrimaryButton, ScreenTitle, SecondaryButton } from '../components'
+import { ArrowRight, Bell, CarFront, CheckCircle2, Clock3, Home, MapPin, UserRound } from 'lucide-react'
+import { AppHeader, AppMap, DemoRoleSwitcher, PageContainer, PrimaryButton, ScreenTitle, SecondaryButton } from '../components'
 import { useDemo } from '../demo/use-demo'
 import type { DemoDriver, DemoDriverAvailability, DemoTrip } from '../demo/types'
 import { getClientRouteForTripState } from '../client-flow'
 import { getOfferForDriver, getDriverHistory, getDriverLandingRoute, getDriverRouteGuard, getTripForDriver } from './driver-flow'
 import { useDriverSession } from './driver-session'
+import { getDemoRouteGeometry, getDriverApproachGeometry } from '../demo/map-routes'
 
 const availabilityLabel: Record<DemoDriverAvailability, string> = {
   AVAILABLE: 'Disponible',
@@ -27,6 +28,30 @@ const tripStatusLabel: Record<DemoTrip['status'], string> = {
 
 function getDriver(state: ReturnType<typeof useDemo>['state'], driverId: string | null): DemoDriver | null {
   return driverId ? state.drivers.find((driver) => driver.id === driverId) ?? null : null
+}
+
+function IncomingTripRequest({ driverId }: { driverId: string }) {
+  const navigate = useNavigate()
+  const { state, acceptCurrentOfferAsDriver, rejectCurrentOfferAsDriver } = useDemo()
+  const offer = getOfferForDriver(state, driverId)
+  const trip = state.activeTrip
+  const driver = getDriver(state, driverId)
+  if (!offer || !trip || !driver || trip.id !== offer.tripId) return null
+  const approach = getDriverApproachGeometry(driver.id, trip.origin.zoneId)
+  return <div className="incoming-request-backdrop" role="presentation">
+    <section className="incoming-request-sheet" role="dialog" aria-modal="true" aria-labelledby="incoming-request-title" key={`${driver.id}:${offer.id}`}>
+      <div className="incoming-request-grabber" />
+      <div className="incoming-request-heading"><span className="incoming-request-bell"><Bell size={23} /><i /></span><div><span className="incoming-request-badge">VIAJE DISPONIBLE</span><h2 id="incoming-request-title">Nueva solicitud</h2><p>Nueva solicitud recibida para tu móvil.</p></div></div>
+      <div className="incoming-request-map"><AppMap mode="preview" origin={trip.origin} destination={trip.destination} driver={driver} originLabel={trip.origin.label} destinationLabel={trip.destination.label} driverLabel={driver.locationLabel} routeGeometry={getDemoRouteGeometry(trip.origin.zoneId, trip.destination.zoneId)} driverRouteGeometry={approach} /></div>
+      <div className="incoming-request-route"><div><span className="route-dot pickup" /><span><small>ORIGEN</small><strong>{trip.origin.label}</strong></span></div><div><span className="route-dot destination" /><span><small>DESTINO</small><strong>{trip.destination.label}</strong></span></div></div>
+      <div className="incoming-request-facts"><div><span>Tarifa</span><strong>{trip.price}</strong></div><div><span>Distancia demo al pasajero</span><strong>{(driver.distanceMeters / 1000).toFixed(1)} km</strong></div></div>
+      <div className="incoming-request-actions">
+        <button className="incoming-reject-button" onClick={() => { rejectCurrentOfferAsDriver(driver.id); navigate('/chofer/inicio', { replace: true }) }}>RECHAZAR</button>
+        <button className="incoming-accept-button" onClick={() => { acceptCurrentOfferAsDriver(driver.id); navigate('/chofer/viaje', { replace: true }) }}>ACEPTAR</button>
+      </div>
+      <span className="incoming-request-exclusivity">Solicitud exclusiva para este móvil</span>
+    </section>
+  </div>
 }
 
 function DriverGuard({ children }: { children: React.ReactNode }) {
@@ -57,7 +82,7 @@ function DriverLoginPage() {
         return <article className={`driver-login-card${driver.id === selectedDriverId ? ' selected' : ''}`} key={driver.id}>
           <div className="driver-login-avatar" style={{ background: `${driver.color}18`, color: driver.color }}><UserRound size={22} /></div>
           <div className="driver-login-copy"><strong>{driver.name}</strong><span>Móvil {vehicle?.mobile ?? '—'} · {vehicle ? `${vehicle.make} ${vehicle.model}` : 'Vehículo demo'}</span><span>{vehicle?.plate ?? '—'} · {vehicle?.color ?? '—'}</span><small className={`driver-status-text status-${driver.availability.toLowerCase()}`}>{availabilityLabel[driver.availability]}</small></div>
-          <button className="driver-select-button" onClick={() => { selectDriver(driver.id); navigate(getDriverLandingRoute(state, driver.id)) }}>INGRESAR <ArrowRight size={15} /></button>
+          <button className="driver-select-button" onClick={() => { selectDriver(driver.id); navigate('/chofer/inicio') }}>INGRESAR <ArrowRight size={15} /></button>
         </article>
       })}</div>
       <div className="driver-demo-notice"><strong>Acceso demo</strong><span>La identidad se mantiene sólo durante esta navegación y se pierde al recargar la página.</span></div>
@@ -121,37 +146,15 @@ function DriverHomePage() {
       </section>
       {cancelled && <div className="driver-cancellation-notice" role="status"><strong>El pasajero canceló el viaje.</strong><span>Volviste a estar disponible para nuevas solicitudes.</span></div>}
       <section className="driver-location-card"><span className="driver-section-icon"><MapPin size={18} /></span><div><span className="eyebrow">UBICACIÓN DEMO</span><strong>{driver.locationLabel}</strong><small>Ubicación ilustrativa · sin GPS</small></div></section>
-      {offer && <button className="driver-offer-teaser" onClick={() => navigate('/chofer/oferta')}><span>Nueva solicitud para vos</span><strong>Ver oferta <ArrowRight size={16} /></strong></button>}
+      <button className="driver-change-profile" onClick={() => navigate('/chofer/ingreso')}>CAMBIAR MÓVIL DEMO <ArrowRight size={14} /></button>
+      {offer && <IncomingTripRequest key={`${driver.id}:${offer.id}`} driverId={driver.id} />}
     </div>
   </DriverPage>
 }
 
 function DriverOfferPage() {
-  const navigate = useNavigate()
-  const { state, acceptCurrentOfferAsDriver, rejectCurrentOfferAsDriver } = useDemo()
   const { selectedDriverId } = useDriverSession()
-  const offer = getOfferForDriver(state, selectedDriverId)!
-  const trip = state.activeTrip!
-  const driver = getDriver(state, selectedDriverId)!
-  const vehicle = state.vehicles.find((item) => item.id === offer.vehicleId)
-  const onReject = () => {
-    rejectCurrentOfferAsDriver(driver.id)
-    navigate('/chofer/inicio', { replace: true })
-  }
-  const onAccept = () => {
-    acceptCurrentOfferAsDriver(driver.id)
-    navigate('/chofer/viaje', { replace: true })
-  }
-  return <DriverPage className="driver-offer-page">
-    <AppHeader back title="Nueva solicitud" onBack={() => navigate('/chofer/inicio')} />
-    <div className="driver-content">
-      <div className="driver-offer-heading"><span className="driver-offer-icon"><Navigation size={21} /></span><span className="eyebrow">OFERTA EXCLUSIVA PARA VOS</span><h1>Nueva solicitud</h1><p>Tenés una solicitud pendiente. Respondé para continuar.</p></div>
-      <section className="driver-offer-route"><div className="driver-route-point"><span className="route-dot pickup" /><div><small>ORIGEN</small><strong>{trip.origin.label}</strong></div></div><div className="driver-route-point"><span className="route-dot destination" /><div><small>DESTINO</small><strong>{trip.destination.label}</strong></div></div></section>
-      <section className="driver-offer-price"><span>Tarifa confirmada del viaje</span><strong>{trip.price}</strong><small>No representa una liquidación o ganancia neta.</small></section>
-      <section className="driver-offer-details"><div><span>Pasajero</span><strong>{trip.passengerDisplayName ?? state.passenger.name}</strong></div>{trip.contactPhone && <div><span>Teléfono</span><strong>{trip.contactPhone}</strong></div>}<div><span>Distancia demo al pasajero</span><strong>{(driver.distanceMeters / 1000).toFixed(1)} km</strong></div><div><span>Tu móvil</span><strong>{vehicle?.mobile ?? '—'} · {vehicle?.make ?? ''} {vehicle?.model ?? ''}</strong></div><div><span>Patente</span><strong>{vehicle?.plate ?? '—'}</strong></div></section>
-      <div className="driver-offer-actions"><SecondaryButton onClick={onReject}>RECHAZAR</SecondaryButton><PrimaryButton onClick={onAccept}>ACEPTAR</PrimaryButton></div>
-    </div>
-  </DriverPage>
+  return <DriverPage className="driver-offer-page">{selectedDriverId && <IncomingTripRequest key={`${selectedDriverId}:offer-route`} driverId={selectedDriverId} />}</DriverPage>
 }
 
 function DriverTripPage() {
@@ -161,6 +164,7 @@ function DriverTripPage() {
   const trip = getTripForDriver(state, selectedDriverId)!
   const driver = getDriver(state, selectedDriverId)!
   const vehicle = state.vehicles.find((item) => item.id === trip.vehicleId)
+  const approach = trip.status === 'DRIVER_EN_ROUTE' ? getDriverApproachGeometry(driver.id, trip.origin.zoneId) : null
   const [confirmComplete, setConfirmComplete] = useState(false)
   const routePoints = <section className="driver-offer-route"><div className="driver-route-point"><span className="route-dot pickup" /><div><small>ORIGEN</small><strong>{trip.origin.label}</strong></div></div><div className="driver-route-point"><span className="route-dot destination" /><div><small>DESTINO</small><strong>{trip.destination.label}</strong></div></div></section>
   const details = <section className="driver-trip-facts"><div><span>Pasajero</span><strong>{trip.passengerDisplayName ?? state.passenger.name}</strong></div>{trip.contactPhone && <div><span>Teléfono</span><strong>{trip.contactPhone}</strong></div>}<div><span>Tarifa</span><strong>{trip.price}</strong></div><div><span>Vehículo</span><strong>{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.plate}` : '—'}</strong></div></section>
@@ -199,6 +203,7 @@ function DriverTripPage() {
       <ScreenTitle eyebrow="MODO CHOFER" title={title} subtitle={subtitle} />
       {trip.status === 'CANCELLED' && <div className="driver-cancellation-notice" role="status"><strong>El pasajero canceló el viaje.</strong><span>El viaje ya no está activo y no se puede continuar.</span></div>}
       {trip.status === 'COMPLETED' && <div className="driver-completed-notice" role="status"><CheckCircle2 size={20} /><strong>Ya estás disponible</strong><span>El viaje quedó registrado en tu historial.</span></div>}
+      {trip.status !== 'COMPLETED' && trip.status !== 'CANCELLED' && <div className="driver-trip-map"><AppMap mode="assigned" origin={trip.origin} destination={trip.destination} driver={driver} originLabel={trip.origin.label} destinationLabel={trip.destination.label} driverLabel={driver.locationLabel} routeGeometry={getDemoRouteGeometry(trip.origin.zoneId, trip.destination.zoneId)} driverRouteGeometry={approach} /></div>}
       {routePoints}{details}
       {action}
       {trip.status !== 'COMPLETED' && trip.status !== 'CANCELLED' && <button className="driver-mode-link" onClick={() => navigate(getClientRouteForTripState(trip))}>VER ESTADO EN MODO CLIENTE <ArrowRight size={14} /></button>}

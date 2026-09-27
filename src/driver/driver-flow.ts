@@ -19,7 +19,7 @@ export function getDriverHistory(state: DemoState, driverId: string | null): Dem
 
 export function getDriverLandingRoute(state: DemoState, driverId: string | null): string {
   if (!driverId) return '/chofer/ingreso'
-  if (getOfferForDriver(state, driverId)) return '/chofer/oferta'
+  if (getOfferForDriver(state, driverId)) return '/chofer/inicio'
   if (state.activeTrip?.driverId === driverId && liveTripStatuses.has(state.activeTrip.status)) return '/chofer/viaje'
   return '/chofer/inicio'
 }
@@ -30,9 +30,8 @@ export function getDriverRouteGuard(path: string, driverId: string | null, state
   if (path === '/chofer' || path === '/chofer/') return getDriverLandingRoute(state, driverId)
   if (path === '/chofer/oferta') return getOfferForDriver(state, driverId) ? null : '/chofer/inicio'
   if (path === '/chofer/viaje') return getTripForDriver(state, driverId) ? null : '/chofer/inicio'
-  if (path === '/chofer/inicio') return getDriverLandingRoute(state, driverId) === '/chofer/oferta'
-    || getDriverLandingRoute(state, driverId) === '/chofer/viaje'
-    ? getDriverLandingRoute(state, driverId)
+  if (path === '/chofer/inicio') return getDriverLandingRoute(state, driverId) === '/chofer/viaje'
+    ? '/chofer/viaje'
     : null
   if (path === '/chofer/viajes' || path === '/chofer/perfil') return null
   return '/chofer/inicio'

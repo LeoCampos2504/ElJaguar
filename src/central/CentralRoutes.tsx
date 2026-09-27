@@ -5,6 +5,7 @@ import { AppMap, DemoRoleSwitcher, PrimaryButton, ScreenTitle, SecondaryButton }
 import { formatDemoFareAmount, getDemoFare, getPendingOffer } from '../demo/dispatch'
 import type { DemoDriver, DemoDriverAvailability, DemoLocation, DemoTrip, DemoTripStatus } from '../demo/types'
 import { useDemo } from '../demo/use-demo'
+import { getDemoRouteGeometry, getDriverApproachGeometry } from '../demo/map-routes'
 import {
   getActiveRequests,
   getAvailableDrivers,
@@ -37,7 +38,12 @@ const availabilityLabels: Record<DemoDriverAvailability, string> = {
   AVAILABLE: 'Disponible', UNAVAILABLE: 'No disponible', BUSY: 'Ocupado', OFFLINE: 'Desconectado',
 }
 
-const sourceLabels = { APP: 'APP', PHONE: 'TELÉFONO', DISPATCHER: 'CENTRAL' } as const
+const sourceLabels = { APP: 'APLICACIÓN', PHONE: 'TELÉFONO', DISPATCHER: 'CENTRAL' } as const
+
+const dispatchStatusLabels = {
+  IDLE: 'Sin solicitudes', SEARCHING: 'Buscando móvil', WAITING_FOR_RESPONSE: 'Esperando respuesta',
+  ASSIGNED: 'Móvil asignado', NO_CANDIDATES: 'Sin móviles disponibles', STOPPED: 'Búsqueda detenida',
+} as const
 
 const demoLocations: DemoLocation[] = [
   { zoneId: 'centro', label: 'Av. Libertad 450 · Centro' },
@@ -96,10 +102,12 @@ function TripFacts({ trip }: { trip: DemoTrip }) {
 
 function CentralMap({ trip }: { trip: DemoTrip | null }) {
   const { state } = useDemo()
-  const driver = trip ? getTripDriver(trip, state) : null
+  const target = getDispatchTargetDriver(state)
+  const driver = trip ? getTripDriver(trip, state) ?? target : target
   const mode = trip && trip.status !== 'REQUESTED' ? 'assigned' : 'searching'
-  return <section className="central-card central-map-card"><div className="central-card-heading"><div><span className="central-section-kicker">VISTA LOCAL</span><h2>Zona de operación</h2></div><span className="central-illustrative-tag"><MapPin size={13} /> Ilustrativo · sin GPS</span></div>
-    <div className="central-map-frame"><AppMap mode={mode} originLabel={trip?.origin.label} destinationLabel={trip?.destination.label} driverLabel={driver?.locationLabel} /></div>
+  const approach = driver && trip?.status === 'REQUESTED' ? getDriverApproachGeometry(driver.id, trip.origin.zoneId) : null
+  return <section className="central-card central-map-card"><div className="central-card-heading"><div><span className="central-section-kicker">VISTA LOCAL</span><h2>Zona de operación</h2></div><span className="central-illustrative-tag"><MapPin size={13} /> OpenStreetMap · sin GPS</span></div>
+    <div className="central-map-frame"><AppMap mode={mode} origin={trip?.origin} destination={trip?.destination} driver={driver} drivers={state.drivers} showDrivers originLabel={trip?.origin.label} destinationLabel={trip?.destination.label} driverLabel={driver?.locationLabel} routeGeometry={getDemoRouteGeometry(trip?.origin.zoneId, trip?.destination.zoneId)} driverRouteGeometry={approach} /></div>
     <div className="central-map-driver-list">{state.drivers.map((item) => <div key={item.id}><i style={{ backgroundColor: item.color }} /><span>{item.name}</span><small>{item.locationLabel}</small><b className={`availability-pill availability-${item.availability.toLowerCase()}`}>{availabilityLabels[item.availability]}</b></div>)}</div>
   </section>
 }
@@ -116,8 +124,8 @@ function DispatchSupervision({ trip }: { trip: DemoTrip }) {
     dispatchToDriverAsDispatcher(confirmDriver.id)
     setConfirmDriver(null)
   }
-  return <section className="central-card central-dispatch-card"><div className="central-card-heading"><div><span className="central-section-kicker">SUPERVISIÓN</span><h2>Dispatch</h2></div><span className={`dispatch-status-pill dispatch-${state.dispatch.status.toLowerCase()}`}>{state.dispatch.status.replaceAll('_', ' ')}</span></div>
-    {trip.status === 'REQUESTED' && target ? <div className="central-dispatch-target"><span className="central-target-icon"><Phone size={16} /></span><div><strong>Esperando respuesta de {target.name}</strong><small>Oferta PENDING · exclusiva para este móvil</small></div></div> : trip.status === 'REQUESTED' && state.dispatch.status === 'NO_CANDIDATES' ? <div className="central-empty-dispatch">No hay candidatos automáticos. Podés intervenir con un móvil disponible.</div> : <div className="central-empty-dispatch">{trip.status === 'REQUESTED' ? 'La solicitud está en despacho.' : `Estado actual: ${statusLabels[trip.status]}.`}</div>}
+  return <section className="central-card central-dispatch-card"><div className="central-card-heading"><div><span className="central-section-kicker">SUPERVISIÓN</span><h2>Asignación de móviles</h2></div><span className={`dispatch-status-pill dispatch-${state.dispatch.status.toLowerCase()}`}>{dispatchStatusLabels[state.dispatch.status]}</span></div>
+    {trip.status === 'REQUESTED' && target ? <div className="central-dispatch-target"><span className="central-target-icon"><Phone size={16} /></span><div><strong>Esperando respuesta de {target.name}</strong><small>Solicitud exclusiva para este móvil</small></div></div> : trip.status === 'REQUESTED' && state.dispatch.status === 'NO_CANDIDATES' ? <div className="central-empty-dispatch">No hay móviles disponibles automáticamente. Podés intervenir con un móvil disponible.</div> : <div className="central-empty-dispatch">{trip.status === 'REQUESTED' ? 'La solicitud está en proceso de asignación.' : `Estado actual: ${statusLabels[trip.status]}.`}</div>}
     {canOverride && <div className="central-override"><strong>Enviar solicitud a otro chofer</strong>{eligible.length === 0 ? <p>No hay choferes disponibles para intervención manual.</p> : <div className="central-override-options">{eligible.map((driver) => <button key={driver.id} onClick={() => setConfirmDriver(driver)}><span>{driver.name}</span><small>Móvil {state.vehicles.find((vehicle) => vehicle.id === driver.vehicleId)?.mobile ?? '—'} · {driver.distanceMeters} m</small><ArrowRight size={15} /></button>)}</div>}{confirmDriver && <div className="central-override-confirm" role="group" aria-label="Confirmar intervención"><p>Se cancelará la oferta actual y la solicitud se enviará exclusivamente a <strong>{confirmDriver.name}</strong>.</p><div><SecondaryButton onClick={() => setConfirmDriver(null)}>Volver</SecondaryButton><PrimaryButton onClick={confirm}>CONFIRMAR ENVÍO</PrimaryButton></div></div>}</div>}
     {tripOffers.length > 0 && <details className="central-offer-history"><summary>Historial de ofertas ({tripOffers.length})</summary>{tripOffers.map((offer) => <div key={offer.id}><span>{state.drivers.find((driver) => driver.id === offer.driverId)?.name ?? offer.driverId}</span><b className={`offer-${offer.status.toLowerCase()}`}>{offer.status}</b></div>)}</details>}
   </section>
@@ -187,7 +195,7 @@ function CentralManualRequestPage() {
     createManualTrip({ passengerDisplayName: name, contactPhone: phone, origin, destination, source: 'PHONE' })
     navigate('/central/viajes')
   }
-  return <CentralLayout title="Nuevo pedido"><div className="central-page-intro"><div><span className="central-section-kicker">CARGA MANUAL</span><h2>Pedido telefónico</h2><p>La solicitud usa tarifa zonal y el dispatch secuencial existente.</p></div></div><div className="central-form-layout"><form className="central-card central-manual-form" onSubmit={submit}><label>Nombre del pasajero<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Nombre y apellido" /></label><label>Teléfono de contacto<input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Teléfono informado" /></label><label>Origen<select value={originId} onChange={(event) => setOriginId(event.target.value)}>{state.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label><label>Destino<select value={destinationId} onChange={(event) => setDestinationId(event.target.value)}>{state.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label><div className="central-manual-source"><Phone size={15} /> Fuente registrada: <strong>TELÉFONO</strong></div>{activeRequest && <div className="central-form-alert" role="alert">Hay un viaje activo en esta demo. Finalizalo o cancelalo antes de crear otro.</div>}{error && <div className="central-form-alert" role="alert">{error}</div>}<PrimaryButton type="submit" disabled={activeRequest || !fare}>CREAR SOLICITUD Y DESPACHAR</PrimaryButton></form><aside className="central-card central-quote-card"><span className="central-section-kicker">COTIZACIÓN PREVIA</span><h2>Tarifa zonal</h2><div><span>{origin.label}</span><ArrowDownRight size={16} /><span>{destination.label}</span></div>{fare ? <strong>{fare.price}</strong> : <strong className="no-fare-price">Sin tarifa</strong>}<p>{fare ? 'El importe quedará congelado en este viaje.' : 'No hay tarifa para este recorrido; no se puede crear la solicitud.'}</p></aside></div></CentralLayout>
+  return <CentralLayout title="Nuevo pedido"><div className="central-page-intro"><div><span className="central-section-kicker">CARGA MANUAL</span><h2>Pedido telefónico</h2><p>La solicitud usa tarifa zonal y la asignación secuencial vigente.</p></div></div><div className="central-form-layout"><form className="central-card central-manual-form" onSubmit={submit}><label>Nombre del pasajero<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Nombre y apellido" /></label><label>Teléfono de contacto<input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Teléfono informado" /></label><label>Origen<select value={originId} onChange={(event) => setOriginId(event.target.value)}>{state.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label><label>Destino<select value={destinationId} onChange={(event) => setDestinationId(event.target.value)}>{state.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label><div className="central-manual-source"><Phone size={15} /> Fuente registrada: <strong>TELÉFONO</strong></div>{activeRequest && <div className="central-form-alert" role="alert">Hay un viaje activo en esta demo. Finalizalo o cancelalo antes de crear otro.</div>}{error && <div className="central-form-alert" role="alert">{error}</div>}<PrimaryButton type="submit" disabled={activeRequest || !fare}>CREAR SOLICITUD Y DESPACHAR</PrimaryButton></form><aside className="central-card central-quote-card"><span className="central-section-kicker">COTIZACIÓN PREVIA</span><h2>Tarifa zonal</h2><div><span>{origin.label}</span><ArrowDownRight size={16} /><span>{destination.label}</span></div>{fare ? <strong>{fare.price}</strong> : <strong className="no-fare-price">Sin tarifa</strong>}<p>{fare ? 'El importe quedará congelado en este viaje.' : 'No hay tarifa para este recorrido; no se puede crear la solicitud.'}</p></aside></div></CentralLayout>
 }
 
 function CentralDriversPage() {

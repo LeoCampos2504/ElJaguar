@@ -1,14 +1,19 @@
-import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { lazy, Suspense, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, ArrowRight, BriefcaseBusiness, BusFront, CarFront, Check, ChevronRight, CircleHelp,
   Clock3, Home, MapPin, Menu, Navigation, Phone, Search, Star, UserRound, X,
 } from 'lucide-react'
 import type { Driver, TripStatus } from './types'
 import { driver as defaultDriver, tripMock } from './mock-data'
-import type { DemoDriver, DemoFare, DemoVehicle } from './demo/types'
+import type { DemoDriver, DemoFare, DemoLocation, DemoVehicle } from './demo/types'
+import type { MapPoint } from './demo/map-locations'
+import { getClientRouteForTripState } from './client-flow'
+import { useDemo } from './demo/use-demo'
+import { isDemoDebugEnabled } from './demo/presentation-utils'
 
 const iconMap = { home: Home, briefcase: BriefcaseBusiness, bus: BusFront, 'map-pin': MapPin }
+const RealMap = lazy(() => import('./map/RealMap').then((module) => ({ default: module.RealMap })))
 
 export function AppHeader({ back, title, onBack, menu = false }: { back?: boolean; title?: string; onBack?: () => void; menu?: boolean }) {
   const navigate = useNavigate()
@@ -25,12 +30,13 @@ export function AppHeader({ back, title, onBack, menu = false }: { back?: boolea
 
 export function DemoRoleSwitcher({ current }: { current: 'CLIENT' | 'DRIVER' | 'CENTRAL' }) {
   const navigate = useNavigate()
+  const { state } = useDemo()
   const roles = [
     { id: 'CLIENT' as const, label: 'Cliente', route: '/cliente' },
     { id: 'DRIVER' as const, label: 'Chofer', route: '/chofer' },
     { id: 'CENTRAL' as const, label: 'Central', route: '/central' },
   ]
-  return <nav className="demo-role-switcher" aria-label="Cambiar rol demo"><span>Modo demo</span>{roles.map((role) => <button key={role.id} aria-current={current === role.id ? 'page' : undefined} className={current === role.id ? 'active' : ''} onClick={() => navigate(role.route)}>{role.label}</button>)}</nav>
+  return <nav className="demo-role-switcher" aria-label="Cambiar rol demo"><span>Vista demo</span>{roles.map((role) => <button key={role.id} aria-current={current === role.id ? 'page' : undefined} className={current === role.id ? 'active' : ''} onClick={() => navigate(role.id === 'CLIENT' && state.activeTrip ? getClientRouteForTripState(state.activeTrip) : role.route)}>{role.label}</button>)}</nav>
 }
 
 export function CustomerBottomNav() {
@@ -57,20 +63,23 @@ export function SecondaryButton({ children, onClick }: { children: ReactNode; on
   return <button className="secondary-button" onClick={onClick}>{children}</button>
 }
 
-export function AppMap({ mode = 'home', originLabel, destinationLabel, driverLabel }: { mode?: 'home' | 'preview' | 'searching' | 'assigned' | 'arrived' | 'in-progress'; originLabel?: string; destinationLabel?: string; driverLabel?: string }) {
-  const withRoute = mode !== 'home' && mode !== 'searching'
-  return <div className={`app-map map-${mode}`} aria-label="Mapa simulado de Libertador General San Martín">
-    <div className="map-topographic one" /><div className="map-topographic two" />
-    <div className="map-label label-river">Río San Francisco</div><div className="map-label label-town">Libertador G. S. M.</div>
-    <div className="map-label label-calilegua">Calilegua</div><div className="map-label label-terminal">Terminal</div>
-    <div className="map-label label-hospital">Hospital O. Orías</div><div className="map-label label-unju">UNJu</div>
-    <div className="road road-a" /><div className="road road-b" /><div className="road road-c" /><div className="road road-d" />
-    {withRoute && <svg className="route-line" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M20,76 C33,64 34,59 46,53 S64,44 74,24" /></svg>}
-    <MapMarker variant="current" className="map-current" />
-    {withRoute && <><MapMarker variant="destination" className="map-destination" />{mode !== 'preview' && <div className="map-car"><CarFront size={17} /></div>}</>}
-    {mode === 'searching' && <div className="map-search-pulse" />}
+export function AppMap({ mode = 'home', originLabel, destinationLabel, driverLabel, origin, destination, driver, drivers, showDrivers, routeGeometry, driverRouteGeometry }: {
+  mode?: 'home' | 'preview' | 'searching' | 'assigned' | 'arrived' | 'in-progress'
+  originLabel?: string
+  destinationLabel?: string
+  driverLabel?: string
+  origin?: DemoLocation | null
+  destination?: DemoLocation | null
+  driver?: DemoDriver | null
+  drivers?: DemoDriver[]
+  showDrivers?: boolean
+  routeGeometry?: MapPoint[] | null
+  driverRouteGeometry?: MapPoint[] | null
+}) {
+  return <div className={`app-map map-${mode}`}>
+    <Suspense fallback={<div className="real-map-fallback" role="status">Cargando mapa local…</div>}><RealMap origin={origin} destination={destination} driver={driver} drivers={drivers} showDrivers={showDrivers} routeGeometry={routeGeometry} driverRouteGeometry={driverRouteGeometry} originLabel={originLabel} destinationLabel={destinationLabel} driverLabel={driverLabel} /></Suspense>
     {(originLabel || destinationLabel || driverLabel) && <div className="map-demo-labels">{originLabel && <span>Origen: {originLabel}</span>}{destinationLabel && <span>Destino: {destinationLabel}</span>}{driverLabel && <span>Móvil demo: {driverLabel}</span>}</div>}
-    {mode === 'home' && <div className="map-location-caption"><Navigation size={13} fill="currentColor" /> Ubicación aproximada</div>}
+    {mode === 'home' && <div className="map-location-caption"><Navigation size={13} fill="currentColor" /> Libertador General San Martín · Jujuy</div>}
   </div>
 }
 
@@ -125,6 +134,8 @@ export function FareUpdateDialog({ onClose, onView }: { onClose: () => void; onV
 }
 
 export function DemoPanel({ nextLabel, onNext, actions = [] }: { nextLabel?: string; onNext?: () => void; actions?: { label: string; onClick: () => void }[] }) {
+  const location = useLocation()
+  if (!isDemoDebugEnabled(location.search)) return null
   return <section className="demo-panel" aria-label="Controles de simulación"><span><span className="demo-dot" /> DEMO · DEBUG · SIMULACIÓN</span><div className="demo-actions">{actions.map((action) => <button key={action.label} onClick={action.onClick}>{action.label} <ArrowRight size={14} /></button>)}{nextLabel && onNext && <button onClick={onNext}>{nextLabel} <ArrowRight size={14} /></button>}</div></section>
 }
 

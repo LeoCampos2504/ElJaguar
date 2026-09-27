@@ -1,7 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { demoReducer } from '../src/demo/dispatch.ts'
-import { getDriverHistory, getDriverRouteGuard, getOfferForDriver, getTripForDriver } from '../src/driver/driver-flow.ts'
+import { getDriverHistory, getDriverLandingRoute, getDriverRouteGuard, getOfferForDriver, getTripForDriver } from '../src/driver/driver-flow.ts'
+import { getClientRouteForTripState } from '../src/client-flow.ts'
+import { getCentralTripRows } from '../src/central/central-flow.ts'
 
 const apply = (state, type, driverId, extra = {}) => demoReducer(state, { type, ...(driverId ? { driverId } : {}), ...extra })
 
@@ -65,7 +67,21 @@ test('A rejection closes A offer before B receives the next exclusive offer', ()
   assert.equal(state.currentOffer.driverId, 'driver-b')
   assert.equal(getOfferForDriver(state, 'driver-a'), null)
   assert.equal(getOfferForDriver(state, 'driver-b'), state.currentOffer)
+  assert.equal(getDriverLandingRoute(state, 'driver-a'), '/chofer/inicio')
+  assert.equal(getDriverLandingRoute(state, 'driver-b'), '/chofer/inicio')
   assert.equal(state.offers.filter((offer) => offer.status === 'PENDING').length, 1)
+})
+
+test('incoming request experience is visible only to the current offer target and switches A to B', () => {
+  let state = requestedTrip()
+  assert.equal(getOfferForDriver(state, 'driver-a')?.driverId, 'driver-a')
+  assert.equal(getOfferForDriver(state, 'driver-b'), null)
+  state = apply(state, 'REJECT_CURRENT_OFFER_AS_DRIVER', 'driver-a')
+  assert.equal(getOfferForDriver(state, 'driver-a'), null)
+  assert.equal(getOfferForDriver(state, 'driver-b')?.driverId, 'driver-b')
+  const switchedIdentity = 'driver-b'
+  assert.equal(getOfferForDriver(state, switchedIdentity), state.currentOffer)
+  assert.equal(state.activeTrip.status, 'REQUESTED')
 })
 
 test('B acceptance assigns the same trip, vehicle, and BUSY state', () => {
@@ -76,6 +92,16 @@ test('B acceptance assigns the same trip, vehicle, and BUSY state', () => {
   assert.equal(state.activeTrip.vehicleId, 'vehicle-03')
   assert.equal(state.drivers.find((driver) => driver.id === 'driver-b').availability, 'BUSY')
   assert.equal(state.dispatch.status, 'ASSIGNED')
+})
+
+test('B acceptance closes incoming request and the same assigned trip is visible in Client and Central', () => {
+  const state = assignedToB()
+  assert.equal(getOfferForDriver(state, 'driver-b'), null)
+  assert.equal(state.activeTrip.status, 'ASSIGNED')
+  assert.equal(state.activeTrip.driverId, 'driver-b')
+  assert.equal(getTripForDriver(state, 'driver-b').id, state.activeTrip.id)
+  assert.equal(getClientRouteForTripState(state.activeTrip), '/cliente/asignado')
+  assert.ok(getCentralTripRows(state).some((row) => row.id === state.activeTrip.id))
 })
 
 test('A cannot advance the trip assigned to B at any driver transition', () => {
