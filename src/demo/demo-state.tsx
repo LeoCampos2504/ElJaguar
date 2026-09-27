@@ -17,13 +17,20 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     retryDispatch: () => dispatch({ type: 'RETRY_DISPATCH' }),
     acceptCurrentOffer: () => dispatch({ type: 'ACCEPT_CURRENT_OFFER' }),
     rejectCurrentOffer: () => dispatch({ type: 'REJECT_CURRENT_OFFER' }),
+    acceptCurrentOfferAsDriver: (driverId) => dispatch({ type: 'ACCEPT_CURRENT_OFFER_AS_DRIVER', driverId }),
+    rejectCurrentOfferAsDriver: (driverId) => dispatch({ type: 'REJECT_CURRENT_OFFER_AS_DRIVER', driverId }),
     expireCurrentOffer: () => dispatch({ type: 'EXPIRE_CURRENT_OFFER' }),
     markDriverEnRoute: () => dispatch({ type: 'MARK_DRIVER_EN_ROUTE' }),
+    markDriverEnRouteAsDriver: (driverId) => dispatch({ type: 'MARK_DRIVER_EN_ROUTE_AS_DRIVER', driverId }),
     markDriverArrived: () => dispatch({ type: 'MARK_DRIVER_ARRIVED' }),
+    markDriverArrivedAsDriver: (driverId) => dispatch({ type: 'MARK_DRIVER_ARRIVED_AS_DRIVER', driverId }),
     startTrip: () => dispatch({ type: 'START_TRIP' }),
+    startTripAsDriver: (driverId) => dispatch({ type: 'START_TRIP_AS_DRIVER', driverId }),
     completeTrip: () => dispatch({ type: 'COMPLETE_TRIP' }),
+    completeTripAsDriver: (driverId) => dispatch({ type: 'COMPLETE_TRIP_AS_DRIVER', driverId }),
     cancelTrip: () => dispatch({ type: 'CANCEL_TRIP' }),
     setDriverAvailability: (driverId, availability) => dispatch({ type: 'SET_DRIVER_AVAILABILITY', driverId, availability }),
+    setDriverAvailabilityAsDriver: (driverId, availability) => dispatch({ type: 'SET_DRIVER_AVAILABILITY_AS_DRIVER', driverId, availability }),
   }
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>

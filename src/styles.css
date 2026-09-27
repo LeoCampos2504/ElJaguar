@@ -46,3 +46,122 @@ h2 { font-size: 15px; letter-spacing: -.02em; }
 @media (min-width: 700px) { .app-shell { min-height: 760px; margin: 26px auto; border-radius: 28px; min-height: calc(100vh - 52px); }.bottom-nav { border-radius: 0 0 28px 28px; }.dialog-backdrop { border-radius: 28px; }.home-map-wrap { height: calc(100vh - 240px); min-height: 570px; }.home-sheet { max-width: 470px; left: 25px; right: 25px; bottom: 20px; border-radius: 22px; } }
 .location-row:disabled { cursor: default; opacity: .9; }.map-demo-labels { position: absolute; z-index: 3; top: 64px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }.map-demo-labels span { max-width: 100%; overflow-wrap: anywhere; border-radius: 8px; padding: 6px 8px; color: #40536c; background: rgba(255,255,255,.9); box-shadow: 0 2px 8px rgba(20,40,70,.08); font-size: 9px; }.demo-panel { align-items: flex-start; flex-wrap: wrap; gap: 8px; }.demo-panel > span { color: #617fa6; font-size: 9px; font-weight: 800; letter-spacing: .04em; }.demo-actions { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 6px 10px; }.demo-panel button { min-height: 32px; padding: 6px 4px; text-align: left; }.round-action:disabled { opacity: .55; cursor: not-allowed; }.no-fare { color: #9b4e42; background: #fff4ef; }.active-trip-card { flex-direction: column; align-items: stretch; }.active-trip-card .primary-button { width: 100%; }.help-card small { margin-left: auto; color: #8c99aa; font-size: 9px; text-align: right; }
 @media (max-width: 380px) { .simple-content, .search-content { padding-left: 15px; padding-right: 15px; }.completed-grid { grid-template-columns: 1fr 1fr; }.help-card { flex-wrap: wrap; }.help-card small { width: 100%; margin-left: 45px; text-align: left; } }
+
+.driver-page { background: #f7f9fc; color: var(--ink); }
+.driver-mode-link { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 2px; color: var(--blue); background: transparent; font-size: 10px; font-weight: 700; }
+.driver-page .app-header { background: rgba(255,255,255,.96); border-bottom: 1px solid var(--line); }
+.driver-content { display: flex; flex-direction: column; gap: 16px; padding: 23px 18px 104px; }
+.driver-login-page .driver-content { padding-bottom: 30px; }
+.driver-login-list { display: flex; flex-direction: column; gap: 10px; }
+.driver-login-card { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 11px; align-items: center; padding: 13px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 4px 16px rgba(34,59,90,.04); }
+.driver-login-card.selected { border-color: #a9caff; }
+.driver-login-avatar, .driver-profile-avatar { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; }
+.driver-login-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.driver-login-copy strong { font-size: 13px; }
+.driver-login-copy span, .driver-login-copy small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.driver-login-copy .status-available { color: #168453; }
+.driver-login-copy .status-unavailable, .driver-login-copy .status-offline { color: #8b96a6; }
+.driver-login-copy .status-busy { color: #c27417; }
+.driver-select-button { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; gap: 7px; width: 100%; min-height: 40px; border-radius: 11px; color: var(--blue); background: var(--blue-soft); font-size: 10px; font-weight: 800; }
+.driver-demo-notice { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; color: #596a7f; background: #edf4ff; font-size: 11px; line-height: 1.5; }
+.driver-demo-notice strong { color: var(--blue); }
+.driver-welcome { padding: 3px 2px 2px; }
+.driver-welcome .eyebrow { color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.driver-welcome h1 { margin: 5px 0 4px; font-size: 25px; letter-spacing: -.045em; }
+.driver-welcome p { margin: 0; color: var(--muted); font-size: 12px; }
+.driver-availability-card { padding: 18px; border: 1px solid #dcefe5; border-radius: 18px; background: linear-gradient(145deg,#fff,#f4fbf7); box-shadow: 0 7px 22px rgba(28,74,54,.05); }
+.driver-availability-card.availability-unavailable, .driver-availability-card.availability-offline { border-color: var(--line); background: #fff; }
+.driver-availability-card.availability-busy { border-color: #f2dfc5; background: #fffaf3; }
+.availability-indicator { display: flex; align-items: center; gap: 7px; color: #168453; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.availability-indicator > span { width: 8px; height: 8px; border-radius: 50%; background: #21aa6d; box-shadow: 0 0 0 4px #e4f7ed; }
+.availability-unavailable .availability-indicator, .availability-offline .availability-indicator { color: #7e8999; }
+.availability-unavailable .availability-indicator > span, .availability-offline .availability-indicator > span { background: #99a4b3; box-shadow: 0 0 0 4px #edf0f4; }
+.availability-busy .availability-indicator { color: #b46b15; }
+.availability-busy .availability-indicator > span { background: #e79a36; box-shadow: 0 0 0 4px #fff0d9; }
+.driver-availability-card h2 { margin: 14px 0 5px; font-size: 18px; letter-spacing: -.025em; }
+.driver-availability-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.availability-toggle { display: flex; align-items: center; gap: 10px; margin-top: 17px; padding: 0; color: #707e91; background: transparent; font-size: 10px; font-weight: 800; }
+.availability-toggle.on { color: #168453; }
+.availability-toggle:disabled { cursor: not-allowed; opacity: .55; }
+.toggle-track { display: flex; align-items: center; width: 39px; height: 23px; padding: 3px; border-radius: 20px; background: #c7ced8; transition: .18s; }
+.availability-toggle.on .toggle-track { justify-content: flex-end; background: #1eaa6d; }
+.toggle-track > span { width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(10,30,60,.18); }
+.availability-lock-note { display: block; margin-top: 9px; color: #929dad; font-size: 9px; }
+.driver-location-card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+.driver-section-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: var(--blue); background: var(--blue-soft); }
+.driver-location-card > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.driver-location-card .eyebrow { color: #8794a7; font-size: 8px; font-weight: 800; letter-spacing: .06em; }
+.driver-location-card strong { font-size: 12px; overflow-wrap: anywhere; }
+.driver-location-card small { color: #98a3b1; font-size: 9px; }
+.driver-offer-teaser { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px; border: 1px solid #f2d9ae; border-radius: 14px; color: #7e571f; background: #fff9ec; text-align: left; font-size: 11px; }
+.driver-offer-teaser strong { display: flex; align-items: center; gap: 5px; color: #b46b15; white-space: nowrap; }
+.driver-offer-heading { text-align: center; padding: 7px 4px 4px; }
+.driver-offer-icon { display: grid; place-items: center; width: 47px; height: 47px; margin: 0 auto 12px; border-radius: 15px; color: #bc781c; background: #fff1d8; }
+.driver-offer-heading .eyebrow { color: #b46b15; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.driver-offer-heading h1 { margin: 5px 0; font-size: 23px; letter-spacing: -.04em; }
+.driver-offer-heading p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.driver-offer-route { position: relative; display: flex; flex-direction: column; gap: 20px; padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.driver-offer-route::before { position: absolute; top: 39px; bottom: 39px; left: 25px; border-left: 1px dashed #b7c9e0; content: ''; }
+.driver-route-point { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.route-dot { flex: 0 0 auto; width: 16px; height: 16px; border: 4px solid #e5efff; border-radius: 50%; background: var(--blue); }
+.route-dot.destination { border-color: #e0f4e9; background: #24a66b; }
+.driver-route-point div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.driver-route-point small { color: #96a2b2; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.driver-route-point strong { font-size: 12px; overflow-wrap: anywhere; }
+.driver-offer-price { display: flex; flex-direction: column; gap: 4px; padding: 15px; border-radius: 15px; color: #245239; background: #eff9f3; }
+.driver-offer-price span, .driver-offer-price small { color: #708d7c; font-size: 9px; }
+.driver-offer-price strong { color: var(--ink); font-size: 25px; letter-spacing: -.045em; }
+.driver-offer-details, .driver-trip-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 10px; padding: 15px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+.driver-offer-details div, .driver-trip-facts div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.driver-offer-details span, .driver-trip-facts span { color: #929eae; font-size: 9px; }
+.driver-offer-details strong, .driver-trip-facts strong { font-size: 11px; overflow-wrap: anywhere; }
+.driver-offer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.driver-offer-actions .secondary-button { color: #cf5d63; background: #fff; border: 1px solid #f0c5c7; }
+.driver-trip-page .screen-title { margin: 2px 0 0; }
+.driver-trip-status { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #dbe8fa; border-radius: 13px; color: var(--blue); background: #f1f6ff; }
+.driver-trip-status > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #e1edff; }
+.driver-trip-status div { display: flex; flex-direction: column; gap: 3px; }
+.driver-trip-status small { color: #8798b0; font-size: 8px; font-weight: 800; letter-spacing: .07em; }
+.driver-trip-status strong { font-size: 11px; }
+.status-in_progress, .status-arrived { color: #198553; border-color: #d7eee2; background: #f1faf5; }
+.status-in_progress > span, .status-arrived > span { background: #e1f5e9; }
+.status-cancelled { color: #c04d56; border-color: #f2d3d5; background: #fff5f5; }
+.status-completed { color: #198553; border-color: #d7eee2; background: #f1faf5; }
+.driver-cancellation-notice, .driver-completed-notice, .driver-confirm-card { display: flex; flex-direction: column; gap: 7px; padding: 15px; border-radius: 14px; color: #9f424b; background: #fff1f1; font-size: 11px; line-height: 1.45; }
+.driver-cancellation-notice span, .driver-confirm-card span { color: #8b7478; font-size: 10px; }
+.driver-completed-notice { align-items: flex-start; color: #168453; background: #eef9f2; }
+.driver-completed-notice span { color: #6d8978; font-size: 10px; }
+.driver-confirm-card { color: var(--ink); background: #fff8eb; }
+.driver-confirm-card .primary-button { margin-top: 5px; }
+.driver-history-list { display: flex; flex-direction: column; gap: 10px; }
+.driver-history-card { padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+.driver-history-heading, .driver-history-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.driver-history-heading > strong { font-size: 12px; }
+.trip-status-pill { padding: 5px 7px; border-radius: 8px; color: #168453; background: #eef9f2; font-size: 8px; font-weight: 800; }
+.trip-cancelled { color: #c04d56; background: #fff1f1; }
+.driver-history-route { display: flex; align-items: center; gap: 7px; padding: 12px 0; color: #637287; font-size: 10px; }
+.driver-history-route span { overflow-wrap: anywhere; }
+.driver-history-route svg { flex: 0 0 auto; color: var(--blue); }
+.driver-history-footer { border-top: 1px solid var(--line); padding-top: 10px; color: #8a96a6; font-size: 9px; }
+.driver-history-footer strong { color: var(--ink); font-size: 12px; }
+.driver-empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 35px 20px; border: 1px dashed #d8e1ed; border-radius: 16px; color: #8b98a9; text-align: center; }
+.driver-empty-state svg { color: var(--blue); }
+.driver-empty-state strong { color: var(--ink); font-size: 12px; }
+.driver-empty-state span { font-size: 10px; }
+.driver-profile-hero { display: flex; align-items: center; gap: 12px; padding: 7px 2px; }
+.driver-profile-avatar { width: 52px; height: 52px; border-radius: 17px; }
+.driver-profile-hero h1 { margin: 0 0 4px; font-size: 19px; }
+.driver-profile-hero p { margin: 0; color: var(--muted); font-size: 10px; }
+.driver-profile-section { display: flex; flex-direction: column; gap: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.driver-profile-section > .eyebrow { margin-bottom: 7px; color: #8b98a8; font-size: 8px; font-weight: 800; letter-spacing: .07em; }
+.driver-profile-section > div { display: flex; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid #f0f2f6; font-size: 10px; }
+.driver-profile-section > div span { color: #8793a4; }
+.driver-profile-section > div strong { text-align: right; overflow-wrap: anywhere; }
+.driver-profile-actions { display: flex; flex-direction: column; gap: 8px; }
+.driver-profile-actions .secondary-button { color: var(--blue); background: #edf4ff; }
+.driver-logout-button { min-height: 42px; color: #c85c63; background: transparent; font-size: 10px; font-weight: 800; }
+.driver-bottom-nav { position: fixed; z-index: 20; bottom: 0; display: grid; grid-template-columns: repeat(3,1fr); width: 100%; max-width: 520px; height: 76px; padding: 9px 20px 11px; border-top: 1px solid #edf0f4; background: rgba(255,255,255,.96); backdrop-filter: blur(12px); }
+.driver-bottom-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #9aa6b7; background: transparent; font-size: 10px; font-weight: 600; }
+.driver-bottom-nav button.active { color: var(--blue); }
+@media (min-width: 700px) { .driver-content { padding-right: 22px; padding-left: 22px; }.driver-bottom-nav { border-radius: 0 0 28px 28px; } }
+@media (max-width: 380px) { .driver-content { padding-right: 14px; padding-left: 14px; }.driver-login-card { padding: 11px; }.driver-offer-details, .driver-trip-facts { gap: 11px 7px; padding: 12px; }.driver-history-route { align-items: flex-start; } }

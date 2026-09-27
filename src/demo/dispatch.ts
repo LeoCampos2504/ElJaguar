@@ -208,6 +208,10 @@ function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
         dispatch: { ...state.dispatch, status: 'ASSIGNED', currentOfferId: null },
       }
     }
+    case 'ACCEPT_CURRENT_OFFER_AS_DRIVER':
+      return canDriverAccept(state) && getPendingOffer(state)?.driverId === action.driverId
+        ? reduceDemoState(state, { type: 'ACCEPT_CURRENT_OFFER' })
+        : state
     case 'REJECT_CURRENT_OFFER':
     case 'EXPIRE_CURRENT_OFFER': {
       if (!canDriverReject(state)) return state
@@ -220,17 +224,33 @@ function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
         dispatch: { ...state.dispatch, status: 'SEARCHING', currentOfferId: null },
       })
     }
+    case 'REJECT_CURRENT_OFFER_AS_DRIVER':
+      return canDriverReject(state) && getPendingOffer(state)?.driverId === action.driverId
+        ? reduceDemoState(state, { type: 'REJECT_CURRENT_OFFER' })
+        : state
     case 'MARK_DRIVER_EN_ROUTE':
       return state.activeTrip?.status === 'ASSIGNED'
         ? { ...state, activeTrip: { ...state.activeTrip, status: 'DRIVER_EN_ROUTE' } }
+        : state
+    case 'MARK_DRIVER_EN_ROUTE_AS_DRIVER':
+      return state.activeTrip?.driverId === action.driverId && state.activeTrip.status === 'ASSIGNED'
+        ? reduceDemoState(state, { type: 'MARK_DRIVER_EN_ROUTE' })
         : state
     case 'MARK_DRIVER_ARRIVED':
       return state.activeTrip?.status === 'DRIVER_EN_ROUTE'
         ? { ...state, activeTrip: { ...state.activeTrip, status: 'ARRIVED' } }
         : state
+    case 'MARK_DRIVER_ARRIVED_AS_DRIVER':
+      return state.activeTrip?.driverId === action.driverId && state.activeTrip.status === 'DRIVER_EN_ROUTE'
+        ? reduceDemoState(state, { type: 'MARK_DRIVER_ARRIVED' })
+        : state
     case 'START_TRIP':
       return state.activeTrip?.status === 'ARRIVED'
         ? { ...state, activeTrip: { ...state.activeTrip, status: 'IN_PROGRESS' } }
+        : state
+    case 'START_TRIP_AS_DRIVER':
+      return state.activeTrip?.driverId === action.driverId && state.activeTrip.status === 'ARRIVED'
+        ? reduceDemoState(state, { type: 'START_TRIP' })
         : state
     case 'COMPLETE_TRIP': {
       if (state.activeTrip?.status !== 'IN_PROGRESS') return state
@@ -245,6 +265,10 @@ function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
         dispatch: { ...state.dispatch, status: 'STOPPED', currentOfferId: null },
       }
     }
+    case 'COMPLETE_TRIP_AS_DRIVER':
+      return state.activeTrip?.driverId === action.driverId && state.activeTrip.status === 'IN_PROGRESS'
+        ? reduceDemoState(state, { type: 'COMPLETE_TRIP' })
+        : state
     case 'CANCEL_TRIP': {
       if (!canPassengerCancel(state) || !state.activeTrip) return state
       const resolved = withResolvedOffer(state, 'CANCELLED')
@@ -273,6 +297,14 @@ function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
           ? { ...driver, availability: action.availability as DemoDriverAvailability }
           : driver),
       }
+    }
+    case 'SET_DRIVER_AVAILABILITY_AS_DRIVER': {
+      if (!state.drivers.some((driver) => driver.id === action.driverId)) return state
+      return reduceDemoState(state, {
+        type: 'SET_DRIVER_AVAILABILITY',
+        driverId: action.driverId,
+        availability: action.availability,
+      })
     }
   }
 }

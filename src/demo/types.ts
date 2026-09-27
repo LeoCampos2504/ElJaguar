@@ -114,10 +114,17 @@ export type DemoAction =
   | { type: 'RETRY_DISPATCH' }
   | { type: 'ACCEPT_CURRENT_OFFER' }
   | { type: 'REJECT_CURRENT_OFFER' }
+  | { type: 'ACCEPT_CURRENT_OFFER_AS_DRIVER'; driverId: string }
+  | { type: 'REJECT_CURRENT_OFFER_AS_DRIVER'; driverId: string }
   | { type: 'EXPIRE_CURRENT_OFFER' }
   | { type: 'MARK_DRIVER_EN_ROUTE' }
+  | { type: 'MARK_DRIVER_EN_ROUTE_AS_DRIVER'; driverId: string }
   | { type: 'MARK_DRIVER_ARRIVED' }
+  | { type: 'MARK_DRIVER_ARRIVED_AS_DRIVER'; driverId: string }
   | { type: 'START_TRIP' }
+  | { type: 'START_TRIP_AS_DRIVER'; driverId: string }
   | { type: 'COMPLETE_TRIP' }
+  | { type: 'COMPLETE_TRIP_AS_DRIVER'; driverId: string }
   | { type: 'CANCEL_TRIP' }
   | { type: 'SET_DRIVER_AVAILABILITY'; driverId: string; availability: DemoDriverAvailability }
+  | { type: 'SET_DRIVER_AVAILABILITY_AS_DRIVER'; driverId: string; availability: Exclude<DemoDriverAvailability, 'BUSY'> }
