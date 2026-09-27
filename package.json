@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "start": "serve --single --listen $PORT dist",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test tests/demo-dispatch.test.mjs tests/client-flow.test.mjs"
   },
@@ -15,6 +16,7 @@
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
+    "serve": "^14.2.6",
     "vite": "latest"
   },
   "devDependencies": {
