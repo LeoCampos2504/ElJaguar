@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from '
 import { ArrowLeft, ArrowRight, Bell, BriefcaseBusiness, CheckCircle2, ChevronRight, CircleHelp, Clock3, CreditCard, HeartPulse, HelpCircle, Home, MapPin, MessageCircle, Phone, Search, ShieldAlert, Star, UserRound, WalletCards, X } from 'lucide-react'
 import { AppHeader, AppMap, BottomSheet, DemoPanel, DriverCard, DriverInfo, FareCard, FareUpdateDialog, LocationRow, PageContainer, PrimaryButton, QuickDestination, ScreenTitle, SearchField, SecondaryButton, StatusBadge, TripCard, TripProgress, TripSummary } from './components'
 import { customer, driver, fareVersion, fares, quickDestinations, recentDestinations, tripHistory, tripMock } from './mock-data'
+import { DemoProvider } from './demo/demo-state'
 
 function HomePage() {
   const navigate = useNavigate()
@@ -91,4 +92,4 @@ function AppRoutes() {
   return <Routes><Route path="/" element={<Navigate to="/cliente" replace />} /><Route path="/cliente" element={<HomePage />} /><Route path="/cliente/buscar" element={<SearchPage />} /><Route path="/cliente/viaje" element={<TripPreviewPage />} /><Route path="/cliente/buscando" element={<SearchingPage />} /><Route path="/cliente/en-camino" element={<AssignedPage />} /><Route path="/cliente/llego" element={<ArrivedPage />} /><Route path="/cliente/en-viaje" element={<InProgressPage />} /><Route path="/cliente/finalizado" element={<CompletedPage />} /><Route path="/cliente/viajes" element={<HistoryPage />} /><Route path="/cliente/viajes/:id" element={<TripDetailPage />} /><Route path="/cliente/ayuda" element={<HelpPage />} /><Route path="/cliente/perfil" element={<ProfilePage />} /><Route path="/cliente/tarifas" element={<FaresPage />} /><Route path="*" element={<Navigate to="/cliente" replace />} /></Routes>
 }
 
-export default function App() { return <BrowserRouter><AppRoutes /></BrowserRouter> }
+export default function App() { return <DemoProvider><BrowserRouter><AppRoutes /></BrowserRouter></DemoProvider> }
