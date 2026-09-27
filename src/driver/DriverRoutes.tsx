@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, CarFront, CheckCircle2, Clock3, Home, MapPin, Navigation, UserRound } from 'lucide-react'
-import { AppHeader, PageContainer, PrimaryButton, ScreenTitle, SecondaryButton } from '../components'
+import { AppHeader, DemoRoleSwitcher, PageContainer, PrimaryButton, ScreenTitle, SecondaryButton } from '../components'
 import { useDemo } from '../demo/use-demo'
 import type { DemoDriver, DemoDriverAvailability, DemoTrip } from '../demo/types'
 import { getClientRouteForTripState } from '../client-flow'
@@ -49,6 +49,7 @@ function DriverLoginPage() {
   const { selectedDriverId, selectDriver } = useDriverSession()
   return <PageContainer noNav className="driver-page driver-login-page">
     <AppHeader title="Modo Chofer" />
+    <div className="driver-role-switcher-wrap"><DemoRoleSwitcher current="DRIVER" /></div>
     <div className="driver-content">
       <ScreenTitle eyebrow="ACCESO DEMO" title="Ingresá a tu móvil" subtitle="Elegí uno de los perfiles de prueba. No requiere contraseña ni representa autenticación real." />
       <div className="driver-login-list">{state.drivers.map((driver) => {
@@ -76,7 +77,7 @@ function DriverBottomNav() {
 }
 
 function DriverPage({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <PageContainer noNav className={`driver-page ${className}`}>{children}<DriverBottomNav /></PageContainer>
+  return <PageContainer noNav className={`driver-page ${className}`}>{children}<div className="driver-role-switcher-wrap"><DemoRoleSwitcher current="DRIVER" /></div><DriverBottomNav /></PageContainer>
 }
 
 function DriverHomePage() {
@@ -147,7 +148,7 @@ function DriverOfferPage() {
       <div className="driver-offer-heading"><span className="driver-offer-icon"><Navigation size={21} /></span><span className="eyebrow">OFERTA EXCLUSIVA PARA VOS</span><h1>Nueva solicitud</h1><p>Tenés una solicitud pendiente. Respondé para continuar.</p></div>
       <section className="driver-offer-route"><div className="driver-route-point"><span className="route-dot pickup" /><div><small>ORIGEN</small><strong>{trip.origin.label}</strong></div></div><div className="driver-route-point"><span className="route-dot destination" /><div><small>DESTINO</small><strong>{trip.destination.label}</strong></div></div></section>
       <section className="driver-offer-price"><span>Tarifa confirmada del viaje</span><strong>{trip.price}</strong><small>No representa una liquidación o ganancia neta.</small></section>
-      <section className="driver-offer-details"><div><span>Pasajero</span><strong>{state.passenger.name}</strong></div><div><span>Distancia demo al pasajero</span><strong>{(driver.distanceMeters / 1000).toFixed(1)} km</strong></div><div><span>Tu móvil</span><strong>{vehicle?.mobile ?? '—'} · {vehicle?.make ?? ''} {vehicle?.model ?? ''}</strong></div><div><span>Patente</span><strong>{vehicle?.plate ?? '—'}</strong></div></section>
+      <section className="driver-offer-details"><div><span>Pasajero</span><strong>{trip.passengerDisplayName ?? state.passenger.name}</strong></div>{trip.contactPhone && <div><span>Teléfono</span><strong>{trip.contactPhone}</strong></div>}<div><span>Distancia demo al pasajero</span><strong>{(driver.distanceMeters / 1000).toFixed(1)} km</strong></div><div><span>Tu móvil</span><strong>{vehicle?.mobile ?? '—'} · {vehicle?.make ?? ''} {vehicle?.model ?? ''}</strong></div><div><span>Patente</span><strong>{vehicle?.plate ?? '—'}</strong></div></section>
       <div className="driver-offer-actions"><SecondaryButton onClick={onReject}>RECHAZAR</SecondaryButton><PrimaryButton onClick={onAccept}>ACEPTAR</PrimaryButton></div>
     </div>
   </DriverPage>
@@ -162,7 +163,7 @@ function DriverTripPage() {
   const vehicle = state.vehicles.find((item) => item.id === trip.vehicleId)
   const [confirmComplete, setConfirmComplete] = useState(false)
   const routePoints = <section className="driver-offer-route"><div className="driver-route-point"><span className="route-dot pickup" /><div><small>ORIGEN</small><strong>{trip.origin.label}</strong></div></div><div className="driver-route-point"><span className="route-dot destination" /><div><small>DESTINO</small><strong>{trip.destination.label}</strong></div></div></section>
-  const details = <section className="driver-trip-facts"><div><span>Pasajero</span><strong>{state.passenger.name}</strong></div><div><span>Tarifa</span><strong>{trip.price}</strong></div><div><span>Vehículo</span><strong>{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.plate}` : '—'}</strong></div></section>
+  const details = <section className="driver-trip-facts"><div><span>Pasajero</span><strong>{trip.passengerDisplayName ?? state.passenger.name}</strong></div>{trip.contactPhone && <div><span>Teléfono</span><strong>{trip.contactPhone}</strong></div>}<div><span>Tarifa</span><strong>{trip.price}</strong></div><div><span>Vehículo</span><strong>{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.plate}` : '—'}</strong></div></section>
   const finish = () => { completeTripAsDriver(driver.id); navigate('/chofer/viaje', { replace: true }) }
   let title = 'Viaje en curso'
   let subtitle = 'Seguí las indicaciones del recorrido demo.'
@@ -177,7 +178,7 @@ function DriverTripPage() {
     action = <PrimaryButton onClick={() => markDriverArrivedAsDriver(driver.id)}>LLEGUÉ</PrimaryButton>
   } else if (trip.status === 'ARRIVED') {
     title = 'Llegaste al punto de recogida'
-    subtitle = `Pasajero: ${state.passenger.name}`
+    subtitle = `Pasajero: ${trip.passengerDisplayName ?? state.passenger.name}`
     action = <PrimaryButton onClick={() => startTripAsDriver(driver.id)}>INICIAR VIAJE</PrimaryButton>
   } else if (trip.status === 'IN_PROGRESS') {
     title = 'Viaje en curso'

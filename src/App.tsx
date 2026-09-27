@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowRight, Bell, BriefcaseBusiness, CheckCircle2, ChevronRight, CircleHelp, Clock3, CreditCard, HeartPulse, HelpCircle, Home, MapPin, MessageCircle, Phone, Search, ShieldAlert, Star, UserRound, WalletCards } from 'lucide-react'
-import { AppHeader, AppMap, BottomSheet, DemoPanel, DriverCard, FareCard, FareUpdateDialog, LocationRow, PageContainer, PrimaryButton, QuickDestination, ScreenTitle, SearchField, SecondaryButton, StatusBadge, TripCard, TripProgress, TripSummary } from './components'
+import { AppHeader, AppMap, BottomSheet, DemoPanel, DemoRoleSwitcher, DriverCard, FareCard, FareUpdateDialog, LocationRow, PageContainer, PrimaryButton, QuickDestination, ScreenTitle, SearchField, SecondaryButton, StatusBadge, TripCard, TripProgress, TripSummary } from './components'
 import { customer, fareVersion, fares, quickDestinations, recentDestinations, tripHistory as legacyHistory } from './mock-data'
 import { DemoProvider } from './demo/demo-state'
 import { DriverRoutes } from './driver/DriverRoutes'
 import { DriverSessionProvider } from './driver/driver-session'
+import { CentralRoutes } from './central/CentralRoutes'
 import { useDemo } from './demo/use-demo'
 import { canPassengerCancel, getCurrentDriver, getCurrentVehicle } from './demo/dispatch'
 import type { DemoTrip, DemoTripStatus } from './demo/types'
@@ -27,7 +28,7 @@ function HomePage() {
     <div className="home-intro"><span className="eyebrow">Buen día, {state.passenger.name}</span><h1>¿A dónde querés ir?</h1></div>
     <div className="home-map-wrap"><AppMap originLabel={state.selectedOrigin?.label} /><BottomSheet className="home-sheet"><LocationRow title="Origen demo" address={state.selectedOrigin?.label ?? 'Origen no seleccionado'} disabled /><SearchField value="" onChange={() => undefined} onFocus={() => navigate('/cliente/buscar')} /><div className="section-heading"><h2>Destinos rápidos</h2></div><div className="quick-grid">{quickDestinations.map((destination) => <QuickDestination key={destination.label} {...destination} onClick={() => goToTrip(destination.address)} />)}</div>
       {active ? <div className="info-card active-trip-card"><span>Tenés un viaje activo: {active.origin.label} → {active.destination.label}</span><PrimaryButton onClick={() => navigate(getClientRouteForTripState(active))}>CONTINUAR VIAJE</PrimaryButton></div> : <p className="soft-hint">Completá tu destino y te mostraremos los detalles del viaje.</p>}
-      <button className="driver-mode-link" onClick={() => navigate('/chofer')}>Ingresar al Modo Chofer demo <ArrowRight size={14} /></button>
+      <DemoRoleSwitcher current="CLIENT" />
       <DemoPanel actions={[{ label: 'RESET DEMO', onClick: () => { resetDemo(); navigate('/cliente') } }]} />
     </BottomSheet></div>
     {showFareDialog && <FareUpdateDialog onClose={() => setShowFareDialog(false)} onView={() => navigate('/cliente/tarifas')} />}
@@ -195,7 +196,7 @@ function GuardedClientRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return <Routes><Route path="/" element={<Navigate to="/cliente" replace />} /><Route path="/cliente" element={<HomePage />} /><Route path="/cliente/buscar" element={<SearchPage />} /><Route path="/cliente/viaje" element={<TripPreviewPage />} />
     <Route path="/cliente/buscando" element={<GuardedClientRoute><SearchingPage /></GuardedClientRoute>} /><Route path="/cliente/asignado" element={<GuardedClientRoute><AssignedPage /></GuardedClientRoute>} /><Route path="/cliente/en-camino" element={<GuardedClientRoute><AssignedPage /></GuardedClientRoute>} /><Route path="/cliente/llego" element={<GuardedClientRoute><ArrivedPage /></GuardedClientRoute>} /><Route path="/cliente/en-viaje" element={<GuardedClientRoute><InProgressPage /></GuardedClientRoute>} /><Route path="/cliente/finalizado" element={<GuardedClientRoute><CompletedPage /></GuardedClientRoute>} /><Route path="/cliente/cancelado" element={<GuardedClientRoute><CancelledPage /></GuardedClientRoute>} />
-    <Route path="/cliente/viajes" element={<HistoryPage />} /><Route path="/cliente/viajes/:id" element={<TripDetailPage />} /><Route path="/cliente/ayuda" element={<HelpPage />} /><Route path="/cliente/perfil" element={<ProfilePage />} /><Route path="/cliente/tarifas" element={<FaresPage />} /><Route path="/chofer/*" element={<DriverRoutes />} /><Route path="*" element={<Navigate to="/cliente" replace />} /></Routes>
+    <Route path="/cliente/viajes" element={<HistoryPage />} /><Route path="/cliente/viajes/:id" element={<TripDetailPage />} /><Route path="/cliente/ayuda" element={<HelpPage />} /><Route path="/cliente/perfil" element={<ProfilePage />} /><Route path="/cliente/tarifas" element={<FaresPage />} /><Route path="/chofer/*" element={<DriverRoutes />} /><Route path="/central/*" element={<CentralRoutes />} /><Route path="*" element={<Navigate to="/cliente" replace />} /></Routes>
 }
 
 export default function App() { return <DemoProvider><DriverSessionProvider><BrowserRouter><AppRoutes /></BrowserRouter></DriverSessionProvider></DemoProvider> }

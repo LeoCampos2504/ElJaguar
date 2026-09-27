@@ -60,6 +60,8 @@ export type DemoFare = {
   price: string
 }
 
+export type DemoTripSource = 'APP' | 'PHONE' | 'DISPATCHER'
+
 export type DemoTripOffer = {
   id: string
   tripId: string
@@ -72,6 +74,9 @@ export type DemoTrip = {
   id: string
   sequence: number
   passengerId: string
+  passengerDisplayName?: string
+  contactPhone?: string
+  source: DemoTripSource
   origin: DemoLocation
   destination: DemoLocation
   fareId: string | null
@@ -110,6 +115,7 @@ export type DemoAction =
   | { type: 'SET_ORIGIN'; location: DemoLocation | null }
   | { type: 'SET_DESTINATION'; location: DemoLocation | null }
   | { type: 'REQUEST_TRIP' }
+  | { type: 'CREATE_MANUAL_TRIP'; passengerDisplayName: string; contactPhone: string; origin: DemoLocation; destination: DemoLocation; source: Exclude<DemoTripSource, 'APP'> }
   | { type: 'START_DISPATCH' }
   | { type: 'RETRY_DISPATCH' }
   | { type: 'ACCEPT_CURRENT_OFFER' }
@@ -128,3 +134,5 @@ export type DemoAction =
   | { type: 'CANCEL_TRIP' }
   | { type: 'SET_DRIVER_AVAILABILITY'; driverId: string; availability: DemoDriverAvailability }
   | { type: 'SET_DRIVER_AVAILABILITY_AS_DRIVER'; driverId: string; availability: Exclude<DemoDriverAvailability, 'BUSY'> }
+  | { type: 'DISPATCH_TO_DRIVER_AS_DISPATCHER'; driverId: string }
+  | { type: 'UPDATE_DEMO_FARE'; fareId: string; amount: string }

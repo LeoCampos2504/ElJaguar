@@ -23,6 +23,16 @@ export function AppHeader({ back, title, onBack, menu = false }: { back?: boolea
   )
 }
 
+export function DemoRoleSwitcher({ current }: { current: 'CLIENT' | 'DRIVER' | 'CENTRAL' }) {
+  const navigate = useNavigate()
+  const roles = [
+    { id: 'CLIENT' as const, label: 'Cliente', route: '/cliente' },
+    { id: 'DRIVER' as const, label: 'Chofer', route: '/chofer' },
+    { id: 'CENTRAL' as const, label: 'Central', route: '/central' },
+  ]
+  return <nav className="demo-role-switcher" aria-label="Cambiar rol demo"><span>Modo demo</span>{roles.map((role) => <button key={role.id} aria-current={current === role.id ? 'page' : undefined} className={current === role.id ? 'active' : ''} onClick={() => navigate(role.route)}>{role.label}</button>)}</nav>
+}
+
 export function CustomerBottomNav() {
   const navigate = useNavigate()
   const path = window.location.pathname

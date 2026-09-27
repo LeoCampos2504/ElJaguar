@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "start": "serve --single --listen $PORT dist",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test tests/demo-dispatch.test.mjs tests/client-flow.test.mjs tests/driver-flow.test.mjs"
+    "test": "node --experimental-strip-types --test tests/demo-dispatch.test.mjs tests/client-flow.test.mjs tests/driver-flow.test.mjs tests/central-flow.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

@@ -76,6 +76,9 @@ const legacyHistory: DemoTrip[] = originalTripHistory.map((trip, index) => {
     id: trip.id,
     sequence: index + 1,
     passengerId: demoPassenger.id,
+    passengerDisplayName: demoPassenger.name,
+    contactPhone: demoPassenger.phone,
+    source: 'APP',
     origin: locationForLegacyAddress(trip.origin),
     destination: locationForLegacyAddress(trip.destination),
     fareId: demoFares.find((fare) =>

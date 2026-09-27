@@ -13,6 +13,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setDestination: (location) => dispatch({ type: 'SET_DESTINATION', location }),
     quoteTrip: () => quoteTrip(state),
     requestTrip: () => dispatch({ type: 'REQUEST_TRIP' }),
+    createManualTrip: (input) => dispatch({ type: 'CREATE_MANUAL_TRIP', ...input }),
     startDispatch: () => dispatch({ type: 'START_DISPATCH' }),
     retryDispatch: () => dispatch({ type: 'RETRY_DISPATCH' }),
     acceptCurrentOffer: () => dispatch({ type: 'ACCEPT_CURRENT_OFFER' }),
@@ -31,6 +32,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     cancelTrip: () => dispatch({ type: 'CANCEL_TRIP' }),
     setDriverAvailability: (driverId, availability) => dispatch({ type: 'SET_DRIVER_AVAILABILITY', driverId, availability }),
     setDriverAvailabilityAsDriver: (driverId, availability) => dispatch({ type: 'SET_DRIVER_AVAILABILITY_AS_DRIVER', driverId, availability }),
+    dispatchToDriverAsDispatcher: (driverId) => dispatch({ type: 'DISPATCH_TO_DRIVER_AS_DISPATCHER', driverId }),
+    updateDemoFare: (fareId, amount) => dispatch({ type: 'UPDATE_DEMO_FARE', fareId, amount }),
   }
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>

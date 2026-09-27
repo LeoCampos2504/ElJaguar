@@ -36,6 +36,15 @@ export function quoteTrip(state: DemoState): DemoFareQuote {
   return fare ? { status: 'AVAILABLE', fare } : { status: 'NO_FARE', fare: null }
 }
 
+export function formatDemoFareAmount(amount: string): string | null {
+  const normalized = amount.trim()
+  if (!/^\d+$/.test(normalized)) return null
+  const value = BigInt(normalized)
+  if (value <= 0n) return null
+  const digits = value.toString()
+  return `$${digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`
+}
+
 export function getEligibleDrivers(state: DemoState): DemoDriver[] {
   const assignedDriverId = state.activeTrip && activeTripStatuses.has(state.activeTrip.status)
     ? state.activeTrip.driverId
@@ -148,6 +157,80 @@ function isValidLocation(state: DemoState, location: DemoLocation | null): boole
   return location === null || state.zones.some((zone) => zone.id === location.zoneId)
 }
 
+function createRequestedTrip(
+  state: DemoState,
+  origin: DemoLocation,
+  destination: DemoLocation,
+  source: DemoTrip['source'],
+  passengerDisplayName: string,
+  contactPhone: string,
+): DemoState {
+  const fare = getDemoFare(state.fares, origin.zoneId, destination.zoneId)
+  if (!fare || (state.activeTrip && activeTripStatuses.has(state.activeTrip.status))) return state
+  const name = passengerDisplayName.trim()
+  const phone = contactPhone.trim()
+  if (!name || !phone) return state
+  const trip: DemoTrip = {
+    id: `demo-trip-${String(state.nextTripNumber).padStart(3, '0')}`,
+    sequence: state.nextTripNumber,
+    passengerId: state.passenger.id,
+    passengerDisplayName: name,
+    contactPhone: phone,
+    source,
+    origin: { ...origin },
+    destination: { ...destination },
+    fareId: fare.id,
+    price: fare.price,
+    status: 'REQUESTED',
+    driverId: null,
+    vehicleId: null,
+  }
+  return startDispatch({
+    ...state,
+    activeTrip: trip,
+    currentOffer: null,
+    nextTripNumber: state.nextTripNumber + 1,
+    dispatch: { status: 'SEARCHING', candidateDriverIds: [], attemptedDriverIds: [], currentOfferId: null },
+  })
+}
+
+function dispatchToDriverAsDispatcher(state: DemoState, driverId: string): DemoState {
+  const trip = state.activeTrip
+  const driver = state.drivers.find((item) => item.id === driverId)
+  const oldOffer = getPendingOffer(state)
+  if (!trip || trip.status !== 'REQUESTED' || trip.driverId !== null
+    || !driver || driver.availability !== 'AVAILABLE'
+    || oldOffer?.driverId === driverId) return state
+
+  const candidateDriverIds = [...new Set([
+    ...state.dispatch.candidateDriverIds,
+    ...getEligibleDrivers(state).map((item) => item.id),
+  ])]
+  const attemptedDriverIds = [...new Set([...state.dispatch.attemptedDriverIds, driverId])]
+  const cancelledOffers = oldOffer
+    ? state.offers.map((offer) => offer.id === oldOffer.id ? { ...offer, status: 'CANCELLED' as const } : offer)
+    : state.offers
+  const offer: DemoTripOffer = {
+    id: `demo-offer-${String(state.nextOfferNumber).padStart(3, '0')}`,
+    tripId: trip.id,
+    driverId: driver.id,
+    vehicleId: driver.vehicleId,
+    status: 'PENDING',
+  }
+  return {
+    ...state,
+    currentOffer: offer,
+    offers: [...cancelledOffers, offer],
+    nextOfferNumber: state.nextOfferNumber + 1,
+    dispatch: {
+      status: 'WAITING_FOR_RESPONSE',
+      candidateDriverIds,
+      attemptedDriverIds,
+      currentOfferId: offer.id,
+    },
+  }
+}
+
 function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
     case 'RESET_DEMO':
@@ -157,29 +240,18 @@ function reduceDemoState(state: DemoState, action: DemoAction): DemoState {
     case 'SET_DESTINATION':
       return isValidLocation(state, action.location) ? { ...state, selectedDestination: action.location } : state
     case 'REQUEST_TRIP': {
-      if (state.activeTrip && activeTripStatuses.has(state.activeTrip.status)) return state
-      const quote = quoteTrip(state)
-      if (quote.status !== 'AVAILABLE' || !state.selectedOrigin || !state.selectedDestination) return state
-      const trip: DemoTrip = {
-        id: `demo-trip-${String(state.nextTripNumber).padStart(3, '0')}`,
-        sequence: state.nextTripNumber,
-        passengerId: state.passenger.id,
-        origin: { ...state.selectedOrigin },
-        destination: { ...state.selectedDestination },
-        fareId: quote.fare.id,
-        price: quote.fare.price,
-        status: 'REQUESTED',
-        driverId: null,
-        vehicleId: null,
-      }
-      const requested: DemoState = {
-        ...state,
-        activeTrip: trip,
-        currentOffer: null,
-        nextTripNumber: state.nextTripNumber + 1,
-        dispatch: { status: 'SEARCHING', candidateDriverIds: [], attemptedDriverIds: [], currentOfferId: null },
-      }
-      return startDispatch(requested)
+      if (!state.selectedOrigin || !state.selectedDestination) return state
+      return createRequestedTrip(state, state.selectedOrigin, state.selectedDestination, 'APP', state.passenger.name, state.passenger.phone)
+    }
+    case 'CREATE_MANUAL_TRIP':
+      if (!isValidLocation(state, action.origin) || !isValidLocation(state, action.destination)) return state
+      return createRequestedTrip(state, action.origin, action.destination, action.source, action.passengerDisplayName, action.contactPhone)
+    case 'DISPATCH_TO_DRIVER_AS_DISPATCHER':
+      return dispatchToDriverAsDispatcher(state, action.driverId)
+    case 'UPDATE_DEMO_FARE': {
+      const price = formatDemoFareAmount(action.amount)
+      if (!price || !state.fares.some((fare) => fare.id === action.fareId)) return state
+      return { ...state, fares: state.fares.map((fare) => fare.id === action.fareId ? { ...fare, price } : fare) }
     }
     case 'START_DISPATCH':
       return startDispatch(state)
