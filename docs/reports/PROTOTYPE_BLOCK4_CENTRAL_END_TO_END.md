@@ -2,14 +2,18 @@
 
 ## Status and baseline
 
-`PROTOTYPE_BLOCK4_STATUS=CANDIDATE_PENDING_OPERATOR_UI_SMOKE`
+`PROTOTYPE_BLOCK4_STATUS=PASS`
+
+`BLOCK4_TECHNICAL_GATE=PASS`
+`BLOCK4_OPERATOR_UI_GATE=PASS`
+`BLOCK4_FINAL_GATE=PASS`
 
 - Project: `remis-norte-prototipo`.
 - Branch: `testing`.
 - `PRE_BLOCK4_HEAD`: `f9eaf69fdf0130c70c5c7ac7cabe8f10fde8eab3`.
 - `origin/testing` matched the baseline. `main` remains `4804e8be5b478e0ea0fb92f78e2736fbf61c39b4`.
 - The worktree contained only Block 4 changes at start. Those changes were preserved.
-- This report records technical verification only. It does not certify visual or interactive browser behavior.
+- The technical candidate was promoted to final PASS after the operator's physical smoke confirmation recorded below.
 
 ## Routes, layout, and shared demo state
 
@@ -45,7 +49,7 @@ The desktop-first layout has an operations sidebar and header, with tablet/mobil
 
 No Computer Use, Chrome automation, Playwright, or browser visual interaction was run for this candidate. A previous Computer Use attempt stopped because it could not identify the current Chrome URL confidently; this phase intentionally leaves browser interaction to the operator.
 
-The following remain `PENDING_OPERATOR_PHYSICAL_SMOKE`: Central route navigation and layout; override interaction; manual telephone request; fare editing; and the three-role same-tab flow. These are not represented as PASS.
+Before the operator confirmation below, the physical UI smoke was pending; those earlier candidate-stage notes are retained as history. The operator confirmation completes the UI gate. No Computer Use, Chrome automation, Playwright, or browser visual interaction was used by Codex for this certification; no automated evidence is claimed.
 
 Candidate publication and read-only HTTP checks:
 
@@ -66,4 +70,63 @@ Candidate publication and read-only HTTP checks:
 
 ## Next action
 
-The technical candidate is published and its HTTP/API regression checks passed. The operator must perform the short physical smoke at `https://testing-jaguar-web-testing.up.railway.app/central` before Block 4 can be certified as final PASS. Do not start Block 5 until that confirmation.
+Block 4 is certified PASS. Proceed only with the separately authorized Prototype Block 5 work; PostgreSQL and migrations remain paused.
+
+## Operator physical smoke certification
+
+The operator confirmed opening `https://testing-jaguar-web-testing.up.railway.app/central` and that Block 4 works correctly for the presentation. This physical certification was performed by the operator, not by Computer Use. No automated visual evidence was invented; this confirmation complements the technical gates and HTTP checks recorded above.
+
+`OPERATOR_PHYSICAL_SMOKE=PASS`
+`CENTRAL_DASHBOARD_PHYSICAL_SMOKE=PASS`
+`CENTRAL_NAVIGATION_PHYSICAL_SMOKE=PASS`
+`CENTRAL_MANUAL_REQUEST_PHYSICAL_SMOKE=PASS`
+`CENTRAL_MANUAL_OVERRIDE_PHYSICAL_SMOKE=PASS`
+`CENTRAL_FARE_EDIT_PHYSICAL_SMOKE=PASS`
+`OPERATOR_CONFIRMED_AT=2026-09-27`
+
+## Demo limitations and paused work
+
+`DEMO_CONCURRENT_ACTIVE_TRIPS_LIMIT=1`
+`SAME_TAB_SHARED_STATE=YES`
+`CROSS_TAB_SHARED_STATE=NO`
+`CROSS_DEVICE_SHARED_STATE=NO`
+`DATABASE_IMPLEMENTATION_STATUS=PAUSED_AFTER_PREPARATION`
+
+## Final negative gates
+
+`PRODUCT_SOURCE_CHANGED=NO`
+`BACKEND_CHANGED=NO`
+`PRISMA_CHANGED=NO`
+`MIGRATION_CHANGED=NO`
+`DATABASE_CONNECTED=NO`
+`DATABASE_MUTATED=NO`
+`RAILWAY_CONFIGURATION_CHANGED=NO`
+`MAIN_BRANCH_TOUCHED=NO`
+`PRODUCTION_TOUCHED=NO`
+
+## Final Block 4 summary
+
+`CENTRAL_ROUTES_CREATED=YES`
+`CENTRAL_DESKTOP_LAYOUT_CREATED=YES`
+`CENTRAL_DASHBOARD_CREATED=YES`
+`CENTRAL_KPIS_CONNECTED=YES`
+`CENTRAL_MAP_CONNECTED=YES`
+
+`CENTRAL_ACTIVE_TRIP_CONNECTED=YES`
+`CENTRAL_MANUAL_REQUEST_CONNECTED=YES`
+`CENTRAL_DISPATCH_SUPERVISION_CONNECTED=YES`
+`CENTRAL_MANUAL_OVERRIDE_CONNECTED=YES`
+
+`MANUAL_OVERRIDE_REQUIRES_DRIVER_ACCEPTANCE=YES`
+`MAX_SIMULTANEOUS_PENDING_OFFERS=1`
+
+`CENTRAL_DRIVERS_CONNECTED=YES`
+`CENTRAL_AVAILABILITY_CONNECTED=YES`
+
+`CENTRAL_FARES_CONNECTED=YES`
+`CENTRAL_FARE_EDIT_CONNECTED=YES`
+`ACTIVE_TRIP_FARE_SNAPSHOT_PRESERVED=YES`
+
+`CENTRAL_HISTORY_CONNECTED=YES`
+`DEMO_ROLE_SWITCHER_CREATED=YES`
+`FINANCE_UI_CREATED=NO`
