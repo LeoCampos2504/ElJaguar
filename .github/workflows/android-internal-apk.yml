@@ -43,12 +43,25 @@ jobs:
         run: |
           node --version
           npm --version
+          {
+            echo "### EL JAGUAR Android internal build (internal development only)"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Node / npm | $(node --version) / $(npm --version) |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Test
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/npm-test.log"
+          count() { grep -E "^ℹ $1 [0-9]+" "$RUNNER_TEMP/npm-test.log" | awk '{print $3}'; }
+          echo "::notice title=Tests::tests=$(count tests) pass=$(count pass) fail=$(count fail)"
+          echo "| Tests | $(count tests) run, $(count pass) pass, $(count fail) fail |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Web build (TypeScript + Vite)
         run: |
@@ -68,7 +81,9 @@ jobs:
           cache: gradle
 
       - name: Java version
-        run: java -version
+        run: |
+          java -version
+          echo "| Java | $(java -version 2>&1 | head -1) |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
@@ -85,18 +100,20 @@ jobs:
           test -f "$apk"
           size=$(stat -c %s "$apk")
           sha=$(sha256sum "$apk" | cut -d' ' -f1)
+          gradle=$(cd android && ./gradlew --version --no-daemon | grep -m1 '^Gradle ' | cut -d' ' -f2)
+          sdk=$(grep -E '(compile|target|min)SdkVersion' android/variables.gradle | tr -d ' ' | paste -sd ' ' -)
+          java=$(java -version 2>&1 | head -1 | tr -d '"')
           echo "APK_PATH=$apk"
           echo "APK_SIZE=$size bytes"
           echo "APK_SHA256=$sha"
           echo "::notice title=Debug APK::app-debug.apk size=${size} sha256=${sha}"
+          echo "::notice title=Toolchain::node=$(node --version) java=${java} gradle=${gradle} ${sdk}"
           {
-            echo "### EL JAGUAR debug APK (internal development only)"
-            echo ""
-            echo "| Field | Value |"
-            echo "| --- | --- |"
-            echo "| Path | \`$apk\` |"
-            echo "| Size | $size bytes |"
-            echo "| SHA-256 | \`$sha\` |"
+            echo "| Gradle | $gradle |"
+            echo "| Android SDK | $sdk |"
+            echo "| APK path | \`$apk\` |"
+            echo "| APK size | $size bytes |"
+            echo "| APK SHA-256 | \`$sha\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload debug APK artifact
