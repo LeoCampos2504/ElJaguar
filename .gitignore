@@ -5,9 +5,19 @@ dist/
 .env
 .env.*
 !.env.example
+!*.example
 coverage/
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 /server/src/generated/prisma/
+
+# Android / signing secrets (never commit)
+android/local.properties
+android/.gradle/
+android/app/build/
+*.jks
+*.keystore
+keystore.properties
+google-services.json

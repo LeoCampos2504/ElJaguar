@@ -8,23 +8,28 @@
     "build": "tsc -b && vite build",
     "start": "serve --single --listen $PORT dist",
     "preview": "vite preview",
+    "android:sync": "npm run build && cap sync android",
+    "android:copy": "npm run build && cap copy android",
     "test": "node --experimental-strip-types --test tests/demo-dispatch.test.mjs tests/client-flow.test.mjs tests/driver-flow.test.mjs tests/central-flow.test.mjs tests/presentation-map-storage.test.mjs"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "@vitejs/plugin-react": "6.1.1",
     "leaflet": "^1.9.4",
-    "lucide-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "lucide-react": "1.48.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "react-leaflet": "^5.0.0",
-    "react-router-dom": "latest",
+    "react-router-dom": "7.18.4",
     "serve": "^14.2.6",
-    "vite": "latest"
+    "vite": "8.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.2",
     "@types/leaflet": "^1.9.22",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "typescript": "latest"
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2"
   }
 }
