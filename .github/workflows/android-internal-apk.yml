@@ -1,0 +1,108 @@
+# INTERNAL DEVELOPMENT ONLY.
+# Builds a debug-signed APK for installing on the
+# operator's own test phone. It is not the Google Play build and must never be
+# distributed to EL JAGUAR clients or drivers. Uses no secrets.
+name: EL JAGUAR Android Internal APK
+
+on:
+  push:
+    branches:
+      - work/el-jaguar-pilot-v1
+  pull_request:
+    branches:
+      - work/el-jaguar-pilot-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-internal-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug-apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Node and npm versions
+        run: |
+          node --version
+          npm --version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Web build (TypeScript + Vite)
+        run: |
+          npm run build
+          test -f dist/index.html
+
+      - name: Capacitor sync Android
+        run: |
+          npx cap sync android
+          test -f android/app/src/main/assets/public/index.html
+
+      - name: Setup JDK 21 (Temurin)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Java version
+        run: java -version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools platforms;android-36 build-tools;35.0.0
+
+      - name: Gradle assembleDebug
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: APK metadata
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$apk"
+          size=$(stat -c %s "$apk")
+          sha=$(sha256sum "$apk" | cut -d' ' -f1)
+          echo "APK_PATH=$apk"
+          echo "APK_SIZE=$size bytes"
+          echo "APK_SHA256=$sha"
+          echo "::notice title=Debug APK::app-debug.apk size=${size} sha256=${sha}"
+          {
+            echo "### EL JAGUAR debug APK (internal development only)"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Path | \`$apk\` |"
+            echo "| Size | $size bytes |"
+            echo "| SHA-256 | \`$sha\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: el-jaguar-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
