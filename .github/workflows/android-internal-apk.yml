@@ -1,5 +1,5 @@
 # INTERNAL DEVELOPMENT ONLY.
-# Builds a debug-signed APK for installing on the
+# Builds a debug-signed APK of the CLIENT target for installing on the
 # operator's own test phone. It is not the Google Play build and must never be
 # distributed to EL JAGUAR clients or drivers. Uses no secrets.
 name: EL JAGUAR Android Internal APK
@@ -63,15 +63,26 @@ jobs:
           echo "::notice title=Tests::tests=$(count tests) pass=$(count pass) fail=$(count fail)"
           echo "| Tests | $(count tests) run, $(count pass) pass, $(count fail) fail |" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Web build (TypeScript + Vite)
+      # The presentation prototype must keep building, but it is never packaged.
+      - name: Prototype reference build (TypeScript + Vite)
         run: |
           npm run build
           test -f dist/index.html
+
+      # build:client = TypeScript + Vite in client mode + client bundle verification.
+      # It runs last so dist/ holds only the CLIENT surface when Capacitor syncs.
+      - name: Client build (Android surface)
+        run: |
+          npm run build:client
+          grep -q '<title>EL JAGUAR</title>' dist/index.html
+          echo "| Android surface | CLIENT_ONLY (bundle verified) |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Capacitor sync Android
         run: |
           npx cap sync android
           test -f android/app/src/main/assets/public/index.html
+          grep -q '<title>EL JAGUAR</title>' android/app/src/main/assets/public/index.html
+          echo "::notice title=Android surface::CLIENT_ONLY"
 
       - name: Setup JDK 21 (Temurin)
         uses: actions/setup-java@v6

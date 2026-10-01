@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:client": "vite --mode client",
     "build": "tsc -b && vite build",
+    "build:client": "tsc -b && vite build --mode client && node scripts/verify-client-bundle.mjs",
+    "verify:client": "node scripts/verify-client-bundle.mjs",
     "start": "serve --single --listen $PORT dist",
     "preview": "vite preview",
-    "android:sync": "npm run build && cap sync android",
-    "android:copy": "npm run build && cap copy android",
-    "test": "node --experimental-strip-types --test tests/demo-dispatch.test.mjs tests/client-flow.test.mjs tests/driver-flow.test.mjs tests/central-flow.test.mjs tests/presentation-map-storage.test.mjs"
+    "android:sync:client": "npm run build:client && cap sync android",
+    "android:copy:client": "npm run build:client && cap copy android",
+    "test": "node --experimental-strip-types --test tests/demo-dispatch.test.mjs tests/client-flow.test.mjs tests/driver-flow.test.mjs tests/central-flow.test.mjs tests/presentation-map-storage.test.mjs tests/client-surface.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",
